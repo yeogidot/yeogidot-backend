@@ -1,7 +1,8 @@
 package com.yeogidot.yeogidot.repository;
 
-import com.yeogidot.yeogidot.entity.Photo; // Entity 패키지에 Photo 클래스가 있어야 함
+import com.yeogidot.yeogidot.entity.Photo;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+// <Entity 타입, PK 타입>
 public interface PhotoRepository extends JpaRepository<Photo, Long> {
 }
