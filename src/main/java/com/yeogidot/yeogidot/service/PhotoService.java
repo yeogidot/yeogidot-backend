@@ -6,6 +6,11 @@ import com.yeogidot.yeogidot.repository.PhotoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * [사진 서비스]
@@ -29,10 +34,46 @@ public class PhotoService {
         // 2. Entity -> DTO 변환
         return PhotoDetailResponse.builder()
                 .photoId(photo.getId())
-                .fileUrl(photo.getFilePath())    // 파일 경로(URL)
-                .takenAt(photo.getTakenAt())     // 촬영 시간
-                .latitude(photo.getLatitude())   // 위도
-                .longitude(photo.getLongitude()) // 경도
+                .fileUrl(photo.getFilePath())
+                .takenAt(photo.getTakenAt())
+                .latitude(photo.getLatitude())
+                .longitude(photo.getLongitude())
                 .build();
+    }
+
+    /**
+     * 사진 업로드
+     */
+    @Transactional
+    public List<Photo> uploadPhotos(List<MultipartFile> files, String metadata) throws IOException {
+        List<Photo> uploadedPhotos = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            String fileName = file.getOriginalFilename();
+            String filePath = saveFile(file);
+
+            Photo photo = Photo.builder()
+                    .filePath(filePath)
+                    .build();
+
+            uploadedPhotos.add(photoRepository.save(photo));
+        }
+
+        return uploadedPhotos;
+    }
+
+    private String saveFile(MultipartFile file) throws IOException {
+        String uploadDir = "uploads/photos/";
+        Path uploadPath = Paths.get(uploadDir);
+
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+
+        String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        Path filePath = uploadPath.resolve(fileName);
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+        return filePath.toString();
     }
 }
