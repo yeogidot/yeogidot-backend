@@ -1,14 +1,22 @@
 package com.yeogidot.yeogidot.controller;
-
-import com.yeogidot.yeogidot.dto.SignupRequest;
-import com.yeogidot.yeogidot.service.AuthService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+// DTO
+import com.yeogidot.yeogidot.dto.LoginRequest;
+import com.yeogidot.yeogidot.dto.SignupRequest;
+
+// Service
+import com.yeogidot.yeogidot.service.AuthService;
+
+// Spring Web & Lombok
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+// 자바 유틸 (Map 사용)
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -18,5 +26,18 @@ public class AuthController {
     public ResponseEntity<String> signup(@RequestBody SignupRequest request) {
         authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body("회원가입 성공");
+    }
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, String>> login(@RequestBody LoginRequest request) {
+        // 1. 주방장에게 로그인 시키고 토큰 받아오기
+        String token = authService.login(request);
+
+        // 2. 손님에게 토큰 예쁘게 포장해서 주기
+        Map<String, String> response = Map.of(
+                "token_type", "Bearer",
+                "access_token", token
+        );
+
+        return ResponseEntity.ok(response);
     }
 }
