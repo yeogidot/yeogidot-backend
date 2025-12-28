@@ -1,67 +1,41 @@
 package com.yeogidot.yeogidot.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import java.time.LocalDate; // 날짜 타입
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * [여행] 엔티티
- * - 서비스의 가장 상위 개념입니다.
- * - User(사용자)와 N:1 관계를 가집니다.
- */
 @Entity
 @Getter
-@Table(name = "travel")
+@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Travel extends BaseTimeEntity {
+@AllArgsConstructor
+@Table(name = "travel")
+public class Travel {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "travel_id")
-    private Long id;
+    private Long travelId;
 
-    // 작성자 (User 엔티티와 연관관계)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
 
     @Column(nullable = false)
     private String title;
 
+    // [★ 추가됨] 여행 지역 (예: 부산광역시)
     @Column(name = "trv_region")
-    private String region; // 여행 대표 지역
+    private String trvRegion;
 
+    // [★ 추가됨] 시작일
+    @Column(name = "start_date")
     private LocalDate startDate;
+
+    // [★ 추가됨] 종료일
+    @Column(name = "end_date")
     private LocalDate endDate;
 
+    // [★ 추가됨] 대표 사진 ID (다른 팀원이 선택한 사진의 ID)
     @Column(name = "representative_photo_id")
     private Long representativePhotoId;
-
-    private String shareUrl; // 공유용 URL
-
-    /**
-     * CascadeType.ALL, orphanRemoval = true
-     * - 여행(Travel)이 삭제되면, 연결된 일차(TravelDay)들도 모두 자동으로 삭제됩니다.
-     */
-    @OneToMany(mappedBy = "travel", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TravelDay> days = new ArrayList<>();
-
-    @Builder
-    public Travel(User user, String title, LocalDate startDate, LocalDate endDate) {
-        this.user = user;
-        this.title = title;
-        this.startDate = startDate;
-        this.endDate = endDate;
-    }
-
-    // 연관관계 편의 메서드 (객체 양방향 연결용)
-    public void addDay(TravelDay day) {
-        this.days.add(day);
-        day.setTravel(this);
-    }
 }

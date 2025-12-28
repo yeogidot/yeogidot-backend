@@ -1,41 +1,46 @@
 package com.yeogidot.yeogidot.controller;
 
 import com.yeogidot.yeogidot.dto.TravelDto;
+import com.yeogidot.yeogidot.entity.User;
+import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.service.TravelService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * 여행(Travel) 관련 API 요청을 처리하는 컨트롤러입니다.
- * - 여행 생성, 조회, 수정, 삭제 등의 HTTP 요청을 받습니다.
- */
+import java.util.List;
+
 @RestController
-@RequestMapping("/api/v1/travels")
+@RequestMapping("/api/travels")
 @RequiredArgsConstructor
 public class TravelController {
 
     private final TravelService travelService;
+    private final UserRepository userRepository;
 
-    /**
-     * [GET] 여행 상세 조회
-     * URL: /api/v1/travels/{travelId}
-     * - 특정 여행의 상세 정보(일차별 스케줄, 사진 포함)를 조회합니다.
-     */
-    @GetMapping("/{travelId}")
-    public ResponseEntity<TravelDto.DetailResponse> getTravel(@PathVariable Long travelId) {
-        return ResponseEntity.ok(travelService.getTravelDetail(travelId));
+    // 내 여행 목록 조회 (GET /api/travels)
+    @GetMapping
+    public ResponseEntity<List<TravelDto>> getMyTravels() {
+        User user = getCurrentUser();
+        return ResponseEntity.ok(travelService.getMyTravels(user));
     }
 
-    /**
-     * [POST] 여행 생성
-     * URL: /api/v1/travels
-     * - 새로운 여행 기록을 생성합니다.
-     * - 반환값: 생성된 여행의 ID (travelId)
-     */
-    @PostMapping
-    public ResponseEntity<Long> createTravel(@RequestBody TravelDto.CreateRequest request) {
-        Long travelId = travelService.createTravel(request);
-        return ResponseEntity.ok(travelId);
+    // 내 여행 삭제 (DELETE /api/travels/{travelId})
+    @DeleteMapping("/{travelId}")
+    public ResponseEntity<Void> deleteTravel(@PathVariable Long travelId) {
+        User user = getCurrentUser();
+        travelService.deleteTravel(travelId, user);
+        return ResponseEntity.noContent().build(); // 204 No Content
+    }
+
+    // (편의용) 현재 로그인 유저 가져오는 메소드
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
     }
 }
+
