@@ -1,13 +1,9 @@
 package com.yeogidot.yeogidot.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-
-import java.math.BigDecimal; // <-- 이거 꼭 필요!
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,8 +19,13 @@ public class Photo {
     @Column(name = "photo_id")
     private Long photoId;
 
+
     @Column(name = "day_id")
     private Integer dayId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "day_id", insertable = false, updatable = false)
+    private TravelDay travelDay;
 
     @Column(name = "file_path", nullable = false, length = 2048)
     private String url;
@@ -32,7 +33,7 @@ public class Photo {
     @Column(name = "original_name")
     private String originalName;
 
-    // Double -> BigDecimal로 변경! (DECIMAL 타입과 매칭됨)
+    // 좌표값 (친구 코드대로 BigDecimal 사용)
     @Column(name = "latitude", precision = 10, scale = 8)
     private BigDecimal latitude;
 

@@ -1,5 +1,8 @@
 package com.yeogidot.yeogidot.config;
 
+import com.yeogidot.yeogidot.security.JwtAuthenticationFilter; // import
+import com.yeogidot.yeogidot.security.JwtTokenProvider;     // import
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -8,26 +11,33 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor // 생성자 주입
 public class SecurityConfig {
+
+    private final JwtTokenProvider jwtTokenProvider; // 문지기한테 줄 도구
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(); // 비밀번호 암호화 기계 등록
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable) // CSRF 보안 비활성화 (개발용)
-                .formLogin(AbstractHttpConfigurer::disable) // 기본 로그인 폼 비활성화
-                .httpBasic(AbstractHttpConfigurer::disable) // HTTP Basic 인증 비활성화
+                .csrf(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll() // 회원가입/로그인은 누구나 접근 가능
-                        .anyRequest().authenticated() // 그 외 요청은 인증 필요
-                );
+                        .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api/photos/upload").permitAll()
+                        .anyRequest().authenticated()
+                )
+                // 문지기(JwtAuthenticationFilter) 배치
+                // UsernamePasswordAuthenticationFilter(기본 로그인 필터) 앞에서 검사
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

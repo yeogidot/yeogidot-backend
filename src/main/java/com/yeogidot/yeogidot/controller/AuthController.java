@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/auth") 
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -40,4 +40,13 @@ public class AuthController {
 
         return ResponseEntity.ok(response);
     }
+    // 로그아웃 (POST /api/auth/logout)
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout() {
+        // 사실 JWT 로그아웃은 서버에서 할 게 별로 없습니다.
+        // 클라이언트가 토큰을 버리면 그게 로그아웃입니다.
+        return ResponseEntity.ok(Map.of("message", "로그아웃되었습니다."));
+    }
+
+
 }
