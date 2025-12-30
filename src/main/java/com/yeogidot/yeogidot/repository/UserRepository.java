@@ -16,4 +16,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * - 반환형이 Optional이므로 결과가 없을 때 null 처리가 용이합니다.
      */
     Optional<User> findByEmail(String email);
+    boolean existsByEmail(String email);
 }

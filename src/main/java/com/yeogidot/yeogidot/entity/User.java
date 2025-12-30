@@ -2,22 +2,25 @@ package com.yeogidot.yeogidot.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
+import lombok.AllArgsConstructor;
 /**
  * [사용자] 엔티티
  * - 회원 가입한 유저 정보를 저장합니다.
  */
 @Entity
-@Getter
-@Table(name = "users") // 'user'는 DB 예약어일 가능성이 높아 'users'로 명명
+@Getter // ★ 필수
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Table(name = "user")
+@Builder
 public class User extends BaseTimeEntity {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
-    private Long id;
+    private Long userId;
 
     @Column(nullable = false, unique = true)
     private String email;
