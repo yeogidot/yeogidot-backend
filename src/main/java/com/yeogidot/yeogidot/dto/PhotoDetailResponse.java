@@ -8,10 +8,8 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * [DTO] 단일 사진 상세 정보 응답 객체
- * - Photo 엔티티의 정보를 클라이언트에 전달할 때 사용됩니다.
- */
+// 단일 사진 상세 정보 응답 객체
+
 @Getter
 @Builder
 @NoArgsConstructor

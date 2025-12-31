@@ -5,10 +5,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
-/**
- * [메인 애플리케이션 클래스]
- * - Spring Boot 서버를 시작하는 진입점입니다.
- */
+// 메인 애플리케이션 클래스
+
 @EnableJpaAuditing // JPA Auditing 활성화 (생성일/수정일 자동 기록용)
 @SpringBootApplication(exclude = {
 		// 1. Spring Security 자동 설정 제외 (개발 초기 단계에서 로그인 없이 API 테스트하기 위함)

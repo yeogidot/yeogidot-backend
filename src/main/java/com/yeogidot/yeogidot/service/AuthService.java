@@ -64,6 +64,6 @@ public class AuthService {
         }
 
         // 3. 다 맞으면 발급기 버튼 눌러서 토큰 생성!
-        return jwtTokenProvider.createToken(user.getUserId(), user.getEmail());
+        return jwtTokenProvider.createToken(user.getId(), user.getEmail());
     }
 }
