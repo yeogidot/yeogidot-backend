@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -7,6 +8,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * [사진] 엔티티
+ * - 사진을 먼저 업로드하고 나중에 여행에 추가할 수 있도록 설계
+ * - latitude, longitude는 EXIF가 없는 경우 nullable
+ */
 @Entity
 @Getter
 @Builder
@@ -22,6 +28,7 @@ public class Photo extends BaseTimeEntity {
     @Column(name = "photo_id")
     private Long id;
 
+    @JsonIgnore  // JSON 직렬화 시 제외
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "day_id")
     private TravelDay travelDay;
@@ -32,15 +39,34 @@ public class Photo extends BaseTimeEntity {
     @Column(name = "original_name")
     private String originalName;
 
-    @Column(precision = 10, scale = 8, nullable = false)
+    // 위도 (EXIF가 없으면 null)
+    @Column(precision = 10, scale = 8)
     private BigDecimal latitude;
 
-    @Column(precision = 11, scale = 8, nullable = false)
+    // 경도 (EXIF가 없으면 null)
+    @Column(precision = 11, scale = 8)
     private BigDecimal longitude;
 
-    @Column(nullable = false)
+    @Column(name = "taken_at", nullable = false)
     private LocalDateTime takenAt;
 
+    @JsonIgnore  // JSON 직렬화 시 제외 (Lazy Loading 에러 방지)
     @OneToMany(mappedBy = "photo", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Cment> comments = new ArrayList<>();
+
+    // URL getter (filePath를 url로 사용)
+    public String getUrl() {
+        return this.filePath;
+    }
+
+    // TravelDay 설정 편의 메서드
+    public void setTravelDay(TravelDay travelDay) {
+        this.travelDay = travelDay;
+    }
+
+    // dayId를 나중에 설정할 수 있도록
+    public void assignToDay(TravelDay day) {
+        this.travelDay = day;
+    }
 }
