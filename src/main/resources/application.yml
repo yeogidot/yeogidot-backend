@@ -7,14 +7,18 @@ spring:
 
     jpa:
         hibernate:
-            ddl-auto: create
+            ddl-auto: update
         properties:
             hibernate:
                 format_sql: true
                 show_sql: true
                 dialect: org.hibernate.dialect.MySQLDialect
         open-in-view: false
-
+    cloud:
+        gcp:
+            project-id: test  # GCP 프로젝트 ID
+            storage:
+                bucket: test # GCS 버킷 이름
 jwt:
     secret: vI7p9W8zX2yQ5rL0kM3nB6vC9xZ8aS1dF4gH7jK0lP3mN6bV9cC2vX1zL0kM3nB6 # 임시로 쓰는 보안 키
     expiration: 3600000

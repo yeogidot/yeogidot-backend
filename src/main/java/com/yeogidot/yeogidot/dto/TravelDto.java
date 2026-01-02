@@ -118,4 +118,14 @@ public class TravelDto {
         private String content;
         private LocalDateTime logCreated;
     }
+
+    // 공유 URL 응답 객체
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ShareUrlResponse {
+        private Long travelId;
+        private String shareUrl;
+    }
 }

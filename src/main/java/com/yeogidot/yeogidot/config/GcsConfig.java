@@ -15,7 +15,7 @@ import java.io.IOException;
  * Google Cloud Storage 설정
  */
 @Slf4j
-@Configuration
+//@Configuration // GCS 키 등록시 주석 해제
 public class GcsConfig {
 
     @Value("${spring.cloud.gcp.project-id}")

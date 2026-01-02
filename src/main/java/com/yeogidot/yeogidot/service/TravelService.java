@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 // 여행 서비스
 
@@ -165,6 +166,47 @@ public class TravelService {
                 .dayRegion(day.getDayRegion())
                 .photos(photoDetails)
                 .diary(diaryDetail)
+                .build();
+    }
+
+    // === 여행 공유 URL 조회 및 생성 ===
+    @Transactional
+    public TravelDto.ShareUrlResponse getOrCreateShareUrl(Long travelId, User user) {
+        // 여행지 존재 여부 확인
+        Travel travel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 여행 기록입니다."));
+
+        // 본인 여부 확인
+        if (!travel.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("해당 여행을 공유할 권한이 없습니다.");
+        }
+
+        // DB에 share_url이 없으면 새로 생성
+        if (travel.getShareUrl() == null || travel.getShareUrl().isEmpty()) {
+            String uuid = UUID.randomUUID().toString(); // 예측 불가능한 랜덤 문자열 생성
+            String baseUrl = "https://travel.vercel.app/share/"; // 프론트엔드 접속 주소 예시
+            String fullUrl = baseUrl + uuid;
+
+            // DB 업데이트
+            // Travel 엔티티에 shareUrl을 변경하는 메서드가 없으므로 직접 필드에 접근하거나 Setter가 필요합니다.
+            // 여기서는 @Builder로 생성된 엔티티의 필드에 직접 접근하거나 별도의 업데이트 로직을 사용한다고 가정합니다.
+            // (Travel 엔티티에 직접적인 업데이트 로직이 없으므로, 편의상 엔티티 내부 필드 수정을 반영하는 로직으로 작성합니다.)
+
+            // 엔티티 필드 업데이트 (JPA Dirty Checking 활용)
+            // 실제 코드에선 travel.setShareUrl(fullUrl) 등을 구현해야 합니다.
+            // 현재 엔티티 구조상 reflection이나 Setter 추가가 필요할 수 있습니다.
+            try {
+                java.lang.reflect.Field field = Travel.class.getDeclaredField("shareUrl");
+                field.setAccessible(true);
+                field.set(travel, fullUrl);
+            } catch (Exception e) {
+                throw new RuntimeException("공유 URL 업데이트 중 오류 발생");
+            }
+        }
+
+        return TravelDto.ShareUrlResponse.builder()
+                .travelId(travel.getId())
+                .shareUrl(travel.getShareUrl())
                 .build();
     }
 }

@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Service
+//@Service // GCS 키 등록시 주석 해제
 @RequiredArgsConstructor
 @Transactional
 public class PhotoService {

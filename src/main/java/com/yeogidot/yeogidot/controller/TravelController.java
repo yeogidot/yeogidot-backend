@@ -12,6 +12,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 //여행 관련 API 요청을 처리하는 컨트롤러
 
@@ -90,5 +91,18 @@ public class TravelController {
         String email = authentication.getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
+    }
+
+    // 여행 공유 URL 조회
+    @GetMapping("/{travelId}/share")
+    public ResponseEntity<?> getShareUrl(@PathVariable Long travelId) {
+        User user = getCurrentUser();
+        TravelDto.ShareUrlResponse response = travelService.getOrCreateShareUrl(travelId, user);
+
+        return ResponseEntity.ok(Map.of(
+                "status", 200,
+                "message", "공유 URL을 조회했습니다.",
+                "data", response
+        ));
     }
 }

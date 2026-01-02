@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@RestController
+//@RestController // GCS 키 등록시 주석 해제
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class PhotoController {
@@ -37,8 +37,8 @@ public class PhotoController {
             @RequestParam("metadata") String metadata
     ) {
         try {
-            System.out.println("📸 받은 파일 개수: " + files.size());
-            System.out.println("📋 메타데이터: " + metadata);
+            System.out.println("받은 파일 개수: " + files.size());
+            System.out.println("메타데이터: " + metadata);
 
             // 서비스 호출
             List<Photo> photos = photoService.uploadPhotos(files, metadata);
