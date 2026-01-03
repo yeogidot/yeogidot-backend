@@ -34,7 +34,8 @@ public class TravelController {
     // 여행 생성
     @PostMapping
     public ResponseEntity<Long> createTravel(@RequestBody TravelDto.CreateRequest request) {
-        Long travelId = travelService.createTravel(request);
+        User user = getCurrentUser(); // 현재 로그인한 사람
+        Long travelId = travelService.createTravel(request, user); // 유저 정보 전달
         return ResponseEntity.ok(travelId);
     }
 
