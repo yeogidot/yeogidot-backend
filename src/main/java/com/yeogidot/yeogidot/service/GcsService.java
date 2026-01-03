@@ -1,6 +1,7 @@
 package com.yeogidot.yeogidot.service;
 
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,7 @@ import java.util.UUID;
  * Google Cloud Storage 파일 업로드 서비스
  */
 @Slf4j
-//@Service // GCS 키 등록시 주석 해제
+@Service // GCS 키 등록시 주석 해제
 @RequiredArgsConstructor
 public class GcsService {
     
@@ -56,5 +57,22 @@ public class GcsService {
         log.info("✅ GCS 업로드 완료: {}", publicUrl);
         
         return publicUrl;
+    }
+
+    // 클래스 내부 기존 코드 아래에 추가하세요
+    public void deleteFile(String fileUrl) {
+        // fileUrl 예시: https://storage.googleapis.com/버킷이름/파일명.jpg
+        String fileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+
+        log.info("GCS 파일 삭제 시도: {}", fileName);
+
+        BlobId blobId = BlobId.of(bucketName, fileName);
+        boolean deleted = storage.delete(blobId);
+
+        if (deleted) {
+            log.info("GCS 파일 삭제 완료: {}", fileName);
+        } else {
+            log.warn("GCS 파일을 찾을 수 없거나 삭제 실패: {}", fileName);
+        }
     }
 }

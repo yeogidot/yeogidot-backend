@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-//@Service // GCS 키 등록시 주석 해제
+@Service // GCS 키 등록시 주석 해제
 @RequiredArgsConstructor
 @Transactional
 public class PhotoService {
@@ -149,5 +149,39 @@ public class PhotoService {
     public Photo getPhotoById(Long id) {
         return photoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("사진을 찾을 수 없습니다. ID: " + id));
+    }
+
+    /// 사진 삭제 기능
+    @Transactional
+    public Long deletePhoto(Long photoId, Long currentUserId) {
+        // 사진 조회 (없으면 404)
+        Photo photo = photoRepository.findById(photoId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사진입니다."));
+
+        // 권한 검증
+        // 경로: photo -> travelDay -> travel -> user -> id 비교
+        validatePhotoOwnership(photo, currentUserId);
+
+        // GCS 파일 삭제
+        gcsService.deleteFile(photo.getFilePath());
+
+        // DB 삭제
+        photoRepository.delete(photo);
+
+        return photoId;
+    }
+
+    // 권한 검증 헬퍼 메소드
+    private void validatePhotoOwnership(Photo photo, Long currentUserId) {
+        // 아직 TravelDay에 등록되지 않은 사진인 경우 처리
+        if (photo.getTravelDay() == null) {
+            throw new SecurityException("여행에 등록되지 않은 사진은 삭제할 수 없습니다.");
+        }
+
+        Long ownerId = photo.getTravelDay().getTravel().getUser().getId();
+
+        if (!ownerId.equals(currentUserId)) {
+            throw new SecurityException("사진 삭제 권한이 없습니다."); // 403 유발
+        }
     }
 }

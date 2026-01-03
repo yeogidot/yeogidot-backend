@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.UUID;
@@ -49,11 +50,9 @@ public class TravelService {
 
     // === 여행 생성 ===
     @Transactional
-    public Long createTravel(TravelDto.CreateRequest request) {
-        // 실제 서비스 시 getCurrentUser 로직과 연동 필요
-        User user = userRepository.findById(1L)
-                .orElseGet(() -> userRepository.save(User.create("test@test.com", "1234")));
+    public Long createTravel(TravelDto.CreateRequest request, User user) { // User 파라미터 추가됨
 
+        // 여행 기록 생성 (로그인한 유저로 저장)
         Travel travel = Travel.builder()
                 .title(request.getTitle())
                 .trvRegion(request.getTrvRegion())
@@ -62,7 +61,31 @@ public class TravelService {
                 .user(user)
                 .build();
 
-        return travelRepository.save(travel).getId();
+        travelRepository.save(travel);
+
+        // 날짜 차이 계산해서 TravelDay 자동 생성
+        long days = ChronoUnit.DAYS.between(request.getStartDate(), request.getEndDate()) + 1;
+
+        for (int i = 0; i < days; i++) {
+            TravelDay day = TravelDay.builder()
+                    .travel(travel)
+                    .dayNumber(i + 1)
+                    .date(request.getStartDate().plusDays(i))
+                    .build();
+            travelDayRepository.save(day);
+
+            // 만약 요청에 사진 ID들이 있고, 1일 차라면 사진을 연결
+            if (i == 0 && request.getPhotoIds() != null && !request.getPhotoIds().isEmpty()) {
+                for (Long photoId : request.getPhotoIds()) {
+                    Photo photo = photoRepository.findById(photoId).orElse(null);
+                    if (photo != null) {
+                        photo.setTravelDay(day); // 사진에 일차 생성
+                    }
+                }
+            }
+        }
+
+        return travel.getId();
     }
 
     // === 여행 상세 조회 ===

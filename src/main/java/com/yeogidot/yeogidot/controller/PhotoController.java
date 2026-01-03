@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-//@RestController // GCS 키 등록시 주석 해제
+@RestController // GCS 키 등록시 주석 해제
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class PhotoController {
@@ -157,5 +157,43 @@ public class PhotoController {
             @RequestBody TravelDto.CommentRequest request) {
         photoService.updateComment(cmentId, request);
         return ResponseEntity.ok().build();
+    }
+
+    /// 사진 삭제 API
+    @DeleteMapping("/photos/{photoId}")
+    public ResponseEntity<?> deletePhoto(@PathVariable Long photoId) {
+        try {
+            // 현재 로그인한 유저 가져오기
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
+
+            // 삭제 진행
+            Long deletedId = photoService.deletePhoto(photoId, user.getId());
+
+            // 성공 (200 OK)
+            return ResponseEntity.ok(Map.of(
+                    "status", 200,
+                    "message", "사진과 코멘트가 삭제되었습니다.",
+                    "deletedPhotoId", deletedId
+            ));
+
+        } catch (IllegalArgumentException e) {
+            // 실패 (404 Not Found - 사진 없음)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "status", 404,
+                    "error", "PHOTO_NOT_FOUND",
+                    "message", e.getMessage()
+            ));
+
+        } catch (SecurityException e) {
+            // 실패 (403 Forbidden - 권한 없음)
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", 403,
+                    "error", "FORBIDDEN_ACCESS",
+                    "message", e.getMessage()
+            ));
+        }
     }
 }
