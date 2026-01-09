@@ -53,6 +53,14 @@ public class TravelDto {
         private String content;
     }
 
+    // 여행 날짜 수동 추가 요청 (NEW!)
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AddDayRequest {
+        private LocalDate date;
+    }
+
     // ===== Response 객체 =====
     // 여행 상세 조회 응답
     @Getter

@@ -42,7 +42,8 @@ public class TravelController {
     // 여행 상세 조회
     @GetMapping("/{travelId}")
     public ResponseEntity<TravelDto.DetailResponse> getTravel(@PathVariable Long travelId) {
-        return ResponseEntity.ok(travelService.getTravelDetail(travelId));
+        User user = getCurrentUser();
+        return ResponseEntity.ok(travelService.getTravelDetail(travelId, user));
     }
 
     // 여행 삭제
@@ -58,31 +59,49 @@ public class TravelController {
     public ResponseEntity<TravelDto.DayDetailResponse> getTravelDay(
             @PathVariable Long travelId,
             @PathVariable Integer dayNumber) {
-        return ResponseEntity.ok(travelService.getTravelDayDetail(travelId, dayNumber));
+        User user = getCurrentUser();
+        return ResponseEntity.ok(travelService.getTravelDayDetail(travelId, dayNumber, user));
     }
 
     // 여행 일차 삭제
-    @DeleteMapping("/api/v1/days/{dayId}")
+    @DeleteMapping("/days/{dayId}")
     public ResponseEntity<Void> deleteTravelDay(@PathVariable Long dayId) {
-        travelService.deleteTravelDay(dayId);
+        User user = getCurrentUser();
+        travelService.deleteTravelDay(dayId, user);
         return ResponseEntity.ok().build();
     }
 
+    // 여행 일차 수동 추가
+    @PostMapping("/{travelId}/days")
+    public ResponseEntity<Map<String, Object>> addTravelDay(
+            @PathVariable Long travelId,
+            @RequestBody TravelDto.AddDayRequest request) {
+        User user = getCurrentUser();
+        Long dayId = travelService.addTravelDay(travelId, request, user);
+        return ResponseEntity.ok(Map.of(
+                "status", 200,
+                "message", "날짜가 추가되었습니다.",
+                "dayId", dayId
+        ));
+    }
+
     // 여행 로그 생성
-    @PostMapping("/api/v1/days/{dayId}/logs")
+    @PostMapping("/days/{dayId}/logs")
     public ResponseEntity<Void> createLog(
             @PathVariable Long dayId,
             @RequestBody TravelDto.LogRequest request) {
-        travelService.createTravelLog(dayId, request);
+        User user = getCurrentUser();
+        travelService.createTravelLog(dayId, request, user);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     // 여행 로그 수정
-    @PutMapping("/api/v1/logs/{logId}")
+    @PutMapping("/logs/{logId}")
     public ResponseEntity<Void> updateLog(
             @PathVariable Long logId,
             @RequestBody TravelDto.LogRequest request) {
-        travelService.updateTravelLog(logId, request);
+        User user = getCurrentUser();
+        travelService.updateTravelLog(logId, request, user);
         return ResponseEntity.ok().build();
     }
 
@@ -105,5 +124,36 @@ public class TravelController {
                 "message", "공유 URL을 조회했습니다.",
                 "data", response
         ));
+    }
+
+    // 대표 사진 수정 API (Step 6에서 추가)
+    @PutMapping("/{travelId}/representative-photo")
+    public ResponseEntity<?> updateRepresentativePhoto(
+            @PathVariable Long travelId,
+            @RequestBody Map<String, Long> request) {
+        try {
+            User user = getCurrentUser();
+            Long photoId = request.get("representativePhotoId");
+
+            travelService.updateRepresentativePhoto(travelId, photoId, user);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", 200,
+                    "message", "대표 사진이 수정되었습니다."
+            ));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "status", 404,
+                    "error", "NOT_FOUND",
+                    "message", e.getMessage()
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", 403,
+                    "error", "FORBIDDEN",
+                    "message", e.getMessage()
+            ));
+        }
     }
 }
