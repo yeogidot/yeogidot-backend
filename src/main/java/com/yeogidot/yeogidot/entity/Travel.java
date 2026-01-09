@@ -51,4 +51,20 @@ public class Travel extends BaseTimeEntity {
         this.travelDays.add(day);
         day.setTravel(this);
     }
+
+    // 대표 사진 수정 메서드
+    public void updateRepresentativePhoto(Long photoId) {
+        this.representativePhotoId = photoId;
+    }
+
+    // 여행 날짜 업데이트 메서드
+    public void updateDates(LocalDate startDate, LocalDate endDate) {
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+
+    // 공유 URL 업데이트 메서드
+    public void updateShareUrl(String shareUrl) {
+        this.shareUrl = shareUrl;
+    }
 }
