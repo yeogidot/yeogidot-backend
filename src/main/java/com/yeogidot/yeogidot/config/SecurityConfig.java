@@ -40,12 +40,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 인증 불필요 경로
                         .requestMatchers(
-                                "/api/auth/**",           // 회원가입, 로그인
-                                "/api/photos/**",         // 사진 관련 전체 (테스트용)
-                                "/swagger-ui/**",         // Swagger UI
-                                "/v3/api-docs/**"         // API 문서
+                                "/api/auth/**",                    // 회원가입, 로그인
+                                "/api/photos/map-markers",        // 지도 마커 조회 (공개)
+                                "/swagger-ui/**",                 // Swagger UI
+                                "/v3/api-docs/**"                 // API 문서
                         ).permitAll()
-                        // 나머지는 인증 필요
+                        // 나머지는 인증 필요 (사진 업로드 포함)
                         .anyRequest().authenticated()
                 )
                 // JWT 필터 등록
