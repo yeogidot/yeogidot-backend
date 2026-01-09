@@ -1,10 +1,13 @@
 package com.yeogidot.yeogidot.dto;
 
-import lombok.Builder;
-import lombok.Getter;
+import lombok.*;
 import java.math.BigDecimal;
 
-@Getter @Builder
+// 기본 PhotoDto (기존 코드 호환성 유지)
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PhotoDto {
     private Long photoId;
     private BigDecimal latitude;
