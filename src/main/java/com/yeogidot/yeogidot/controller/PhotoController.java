@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.controller;
 
+import com.yeogidot.yeogidot.dto.MovePhotoRequest;
 import com.yeogidot.yeogidot.dto.PhotoDto;
 import com.yeogidot.yeogidot.dto.TravelDto;
 import com.yeogidot.yeogidot.entity.Photo;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -40,8 +42,11 @@ public class PhotoController {
             System.out.println("받은 파일 개수: " + files.size());
             System.out.println("메타데이터: " + metadata);
 
+            // 현재 로그인한 유저 가져오기
+            User user = getCurrentUser();
+
             // 서비스 호출
-            List<Photo> photos = photoService.uploadPhotos(files, metadata);
+            List<Photo> photos = photoService.uploadPhotos(files, metadata, user);
 
             // 성공 응답
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
@@ -118,7 +123,7 @@ public class PhotoController {
         try {
             // 위치 정보가 있는 모든 사진 조회
             List<Photo> photos = photoService.getAllPhotos();
-            
+
             List<PhotoDto> markers = photos.stream()
                     .filter(photo -> photo.getLatitude() != null && photo.getLongitude() != null)
                     .map(photo -> PhotoDto.builder()
@@ -128,7 +133,7 @@ public class PhotoController {
                             .thumbnailUrl(photo.getFilePath())
                             .build())
                     .collect(Collectors.toList());
-            
+
             return ResponseEntity.ok(markers);
         } catch (Exception e) {
             e.printStackTrace();
@@ -144,7 +149,8 @@ public class PhotoController {
     public ResponseEntity<Void> createComment(
             @PathVariable Long photoId,
             @RequestBody TravelDto.CommentRequest request) {
-        photoService.createComment(photoId, request);
+        User user = getCurrentUser();
+        photoService.createComment(photoId, request, user);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -155,21 +161,18 @@ public class PhotoController {
     public ResponseEntity<Void> updateComment(
             @PathVariable Long cmentId,
             @RequestBody TravelDto.CommentRequest request) {
-        photoService.updateComment(cmentId, request);
+        User user = getCurrentUser();
+        photoService.updateComment(cmentId, request, user);
         return ResponseEntity.ok().build();
     }
 
-    /// 사진 삭제 API
+    /**
+     * 사진 삭제 API
+     */
     @DeleteMapping("/photos/{photoId}")
     public ResponseEntity<?> deletePhoto(@PathVariable Long photoId) {
         try {
-            // 현재 로그인한 유저 가져오기
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            String email = authentication.getName();
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
-
-            // 삭제 진행
+            User user = getCurrentUser();
             Long deletedId = photoService.deletePhoto(photoId, user.getId());
 
             // 성공 (200 OK)
@@ -195,5 +198,86 @@ public class PhotoController {
                     "message", e.getMessage()
             ));
         }
+    }
+
+    /**
+     * 사진 촬영시간 수정 API (Step 4에서 추가)
+     */
+    @PutMapping("/photos/{photoId}/taken-at")
+    public ResponseEntity<?> updatePhotoTakenAt(
+            @PathVariable Long photoId,
+            @RequestBody Map<String, String> request) {
+        try {
+            User user = getCurrentUser();
+            // takenAt 문자열을 LocalDateTime으로 변환
+            LocalDateTime newTakenAt = LocalDateTime.parse(request.get("takenAt"));
+
+            photoService.updateTakenAt(photoId, newTakenAt, user);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", 200,
+                    "message", "촬영 시간이 수정되었습니다."
+            ));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "status", 404,
+                    "error", "PHOTO_NOT_FOUND",
+                    "message", e.getMessage()
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", 403,
+                    "error", "FORBIDDEN",
+                    "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "status", 400,
+                    "error", "INVALID_REQUEST",
+                    "message", "잘못된 요청입니다: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * 사진을 특정 날짜로 이동
+     */
+    @PutMapping("/photos/{photoId}/travel-day")
+    public ResponseEntity<?> movePhotoToDay(
+            @PathVariable Long photoId,
+            @RequestBody MovePhotoRequest request) {
+        try {
+            User user = getCurrentUser();
+            photoService.movePhotoToDay(photoId, request.getDayId(), user.getId());
+
+            return ResponseEntity.ok(Map.of(
+                    "status", 200,
+                    "message", "사진이 이동되었습니다."
+            ));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "status", 404,
+                    "error", "NOT_FOUND",
+                    "message", e.getMessage()
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", 403,
+                    "error", "FORBIDDEN",
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * 현재 로그인한 사용자 조회
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
     }
 }
