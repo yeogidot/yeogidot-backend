@@ -8,10 +8,9 @@ import java.util.List;
 
 public interface PhotoRepository extends JpaRepository<Photo, Long> {
 
+    // Photo 엔티티에 user 필드가 있으므로 직접 조회 (TravelDay JOIN 불필요)
     @Query("SELECT p FROM Photo p " +
-            "JOIN p.travelDay d " +
-            "JOIN d.travel t " +
-            "WHERE t.user.id = :userId " +
+            "WHERE p.user.id = :userId " +
             "AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL")
     List<Photo> findAllByUserId(@Param("userId") Long userId);
 }

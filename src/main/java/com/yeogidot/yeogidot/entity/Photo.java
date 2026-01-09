@@ -30,6 +30,11 @@ public class Photo extends BaseTimeEntity {
 
     @JsonIgnore  // JSON 직렬화 시 제외
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;  // 사진을 업로드한 사용자
+
+    @JsonIgnore  // JSON 직렬화 시 제외
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "day_id")
     private TravelDay travelDay;
 
@@ -65,8 +70,8 @@ public class Photo extends BaseTimeEntity {
         this.travelDay = travelDay;
     }
 
-    // dayId를 나중에 설정할 수 있도록
-    public void assignToDay(TravelDay day) {
-        this.travelDay = day;
+    // 촬영 시간 수정 메서드
+    public void updateTakenAt(LocalDateTime takenAt) {
+        this.takenAt = takenAt;
     }
 }
