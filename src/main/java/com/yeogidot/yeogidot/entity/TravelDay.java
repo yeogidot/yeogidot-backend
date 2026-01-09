@@ -38,12 +38,17 @@ public class TravelDay extends BaseTimeEntity {
     @Builder.Default
     private List<TravelLog> travelLogs = new ArrayList<>();
 
-    // 일차에 속한 사진
-    @OneToMany(mappedBy = "travelDay", cascade = CascadeType.ALL, orphanRemoval = true)
+    // 일차에 속한 사진 (orphanRemoval=false: TravelDay 삭제 시 사진은 유지, travelDay만 null로)
+    @OneToMany(mappedBy = "travelDay", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @Builder.Default
     private List<Photo> photos = new ArrayList<>();
 
     public void setTravel(Travel travel) {
         this.travel = travel;
+    }
+
+    // dayNumber 업데이트 메서드
+    public void updateDayNumber(Integer dayNumber) {
+        this.dayNumber = dayNumber;
     }
 }
