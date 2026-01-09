@@ -17,7 +17,7 @@ import java.util.UUID;
  * Google Cloud Storage 파일 업로드 서비스
  */
 @Slf4j
-@Service // GCS 키 등록시 주석 해제
+@Service
 @RequiredArgsConstructor
 public class GcsService {
     
