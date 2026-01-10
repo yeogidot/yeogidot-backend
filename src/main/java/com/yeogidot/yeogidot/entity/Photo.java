@@ -1,48 +1,77 @@
 package com.yeogidot.yeogidot.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.math.BigDecimal; // <-- 이거 꼭 필요!
+import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
+/**
+ * [사진] 엔티티
+ * - 사진을 먼저 업로드하고 나중에 여행에 추가할 수 있도록 설계
+ * - latitude, longitude는 EXIF가 없는 경우 nullable
+ */
 @Entity
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
-@Table(name = "photo")
-public class Photo {
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "photo", indexes = {
+        @Index(name = "idx_photo_day_time", columnList = "day_id, taken_at")
+})
+public class Photo extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "photo_id")
-    private Long photoId;
+    private Long id;
 
-    @Column(name = "day_id")
-    private Integer dayId;
+    @JsonIgnore  // JSON 직렬화 시 제외
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;  // 사진을 업로드한 사용자
 
-    @Column(name = "file_path", nullable = false, length = 2048)
-    private String url;
+    @JsonIgnore  // JSON 직렬화 시 제외
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "day_id")
+    private TravelDay travelDay;
+
+    @Column(name = "file_path", length = 2048, nullable = false)
+    private String filePath;
 
     @Column(name = "original_name")
     private String originalName;
 
-    // Double -> BigDecimal로 변경! (DECIMAL 타입과 매칭됨)
-    @Column(name = "latitude", precision = 10, scale = 8)
+    // 위도 (EXIF가 없으면 null)
+    @Column(precision = 10, scale = 8)
     private BigDecimal latitude;
 
-    @Column(name = "longitude", precision = 11, scale = 8)
+    // 경도 (EXIF가 없으면 null)
+    @Column(precision = 11, scale = 8)
     private BigDecimal longitude;
 
     @Column(name = "taken_at", nullable = false)
     private LocalDateTime takenAt;
 
-    @CreationTimestamp
-    @Column(name = "photo_created", nullable = false, updatable = false)
-    private LocalDateTime photoCreated;
+    @JsonIgnore  // JSON 직렬화 시 제외 (Lazy Loading 에러 방지)
+    @OneToMany(mappedBy = "photo", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Cment> comments = new ArrayList<>();
+
+    // URL getter (filePath를 url로 사용)
+    public String getUrl() {
+        return this.filePath;
+    }
+
+    // TravelDay 설정 편의 메서드
+    public void setTravelDay(TravelDay travelDay) {
+        this.travelDay = travelDay;
+    }
+
+    // 촬영 시간 수정 메서드
+    public void updateTakenAt(LocalDateTime takenAt) {
+        this.takenAt = takenAt;
+    }
 }

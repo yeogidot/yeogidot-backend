@@ -1,9 +1,11 @@
 package com.yeogidot.yeogidot.service;
 
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,29 +13,66 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.UUID;
 
+/**
+ * Google Cloud Storage 파일 업로드 서비스
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GcsService {
-
+    
     @Value("${spring.cloud.gcp.storage.bucket}")
     private String bucketName;
-
+    
     private final Storage storage;
 
+    /**
+     * GCS에 파일 업로드 후 공개 URL 반환
+     */
     public String uploadFile(MultipartFile file) throws IOException {
         // 파일명 중복 방지를 위한 UUID 생성
         String uuid = UUID.randomUUID().toString();
-        String ext = file.getContentType(); // 이미지 타입 (image/png 등)
+        String originalFilename = file.getOriginalFilename();
+        String extension = "";
+        
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        
+        String fileName = uuid + extension;
+
+        log.info("📤 GCS 업로드 시작: {} → {}", originalFilename, fileName);
 
         // GCS에 저장할 파일 정보 설정
-        BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, uuid)
-                .setContentType(ext)
+        BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, fileName)
+                .setContentType(file.getContentType())
                 .build();
 
-        // 실제 전송
-        storage.create(blobInfo, file.getBytes());
+        // 파일 업로드
+        Blob blob = storage.create(blobInfo, file.getBytes());
 
-        // 저장된 이미지의 URL 반환
-        return "https://storage.googleapis.com/" + bucketName + "/" + uuid;
+        // 공개 URL 반환
+        String publicUrl = String.format("https://storage.googleapis.com/%s/%s", bucketName, fileName);
+        
+        log.info("✅ GCS 업로드 완료: {}", publicUrl);
+        
+        return publicUrl;
+    }
+
+    // 클래스 내부 기존 코드 아래에 추가하세요
+    public void deleteFile(String fileUrl) {
+        // fileUrl 예시: https://storage.googleapis.com/버킷이름/파일명.jpg
+        String fileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+
+        log.info("GCS 파일 삭제 시도: {}", fileName);
+
+        BlobId blobId = BlobId.of(bucketName, fileName);
+        boolean deleted = storage.delete(blobId);
+
+        if (deleted) {
+            log.info("GCS 파일 삭제 완료: {}", fileName);
+        } else {
+            log.warn("GCS 파일을 찾을 수 없거나 삭제 실패: {}", fileName);
+        }
     }
 }
