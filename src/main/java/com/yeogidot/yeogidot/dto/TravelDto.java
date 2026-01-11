@@ -53,7 +53,7 @@ public class TravelDto {
         private String content;
     }
 
-    // 여행 날짜 수동 추가 요청 (NEW!)
+    // 여행 날짜 수동 추가 요청
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor

@@ -55,12 +55,12 @@ public class TravelService {
     @Transactional
     public Long createTravel(TravelDto.CreateRequest request, User user) {
 
-        // 📅 1단계: 여행 기간 결정 (사진 기반 자동 생성 또는 수동 입력)
+        // 1단계: 여행 기간 결정 (사진 기반 자동 생성 또는 수동 입력)
         LocalDate startDate;
         LocalDate endDate;
 
         if (request.getStartDate() == null || request.getEndDate() == null) {
-            // ✅ 사진 날짜 기반 자동 생성
+            // 사진 날짜 기반 자동 생성
             if (request.getPhotoIds() == null || request.getPhotoIds().isEmpty()) {
                 throw new IllegalArgumentException("날짜를 입력하거나 사진을 업로드해주세요.");
             }
@@ -81,12 +81,12 @@ public class TravelService {
             startDate = photoDates.get(0); // 가장 이른 날짜
             endDate = photoDates.get(photoDates.size() - 1); // 가장 늦은 날짜
         } else {
-            // ✅ 사용자가 직접 입력한 날짜 사용
+            // 사용자가 직접 입력한 날짜 사용
             startDate = request.getStartDate();
             endDate = request.getEndDate();
         }
 
-        // 📝 2단계: 여행 기록 생성
+        // 2단계: 여행 기록 생성
         Travel travel = Travel.builder()
                 .title(request.getTitle())
                 .trvRegion(request.getTrvRegion())
@@ -98,7 +98,7 @@ public class TravelService {
 
         travelRepository.save(travel);
 
-        // 📆 3단계: 날짜별 TravelDay 자동 생성
+        //  3단계: 날짜별 TravelDay 자동 생성
         long days = ChronoUnit.DAYS.between(startDate, endDate) + 1;
         Map<LocalDate, TravelDay> dayMap = new HashMap<>();
 
@@ -113,7 +113,7 @@ public class TravelService {
             dayMap.put(date, day);
         }
 
-        // 📸 4단계: 사진 자동 분류 (촬영 날짜 기준)
+        // 4단계: 사진 자동 분류 (촬영 날짜 기준)
         if (request.getPhotoIds() != null && !request.getPhotoIds().isEmpty()) {
             for (Long photoId : request.getPhotoIds()) {
                 Photo photo = photoRepository.findById(photoId).orElse(null);
@@ -373,7 +373,7 @@ public class TravelService {
                 .build();
     }
 
-    // === 대표 사진 수정 (Step 5에서 추가) ===
+    // === 대표 사진 수정  ===
     @Transactional
     public void updateRepresentativePhoto(Long travelId, Long photoId, User user) {
         // 여행 조회

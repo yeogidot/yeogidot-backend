@@ -126,7 +126,7 @@ public class TravelController {
         ));
     }
 
-    // 대표 사진 수정 API (Step 6에서 추가)
+    // 대표 사진 수정 API
     @PutMapping("/{travelId}/representative-photo")
     public ResponseEntity<?> updateRepresentativePhoto(
             @PathVariable Long travelId,
