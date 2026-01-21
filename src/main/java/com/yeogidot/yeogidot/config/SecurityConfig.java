@@ -67,9 +67,11 @@ public class SecurityConfig {
         // 개발 환경: localhost 모든 포트 허용
         // 운영 환경: 실제 프론트엔드 도메인으로 변경 필요
         configuration.setAllowedOriginPatterns(Arrays.asList(
-                "http://localhost:*",         // 개발: localhost 모든 포트
-                "http://127.0.0.1:*",         // 개발: 127.0.0.1 모든 포트
-                "http://34.50.29.65:*"        // 개발/테스트: GCP 서버 (모든 포트)
+                "http://localhost",           // 포트 없는 localhost
+                "http://localhost:*",         // localhost 모든 포트
+                "http://127.0.0.1",           // 포트 없는 127.0.0.1
+                "http://127.0.0.1:*",         // 127.0.0.1 모든 포트
+                "http://34.50.29.65:*"        // GCP 서버
         ));
         
         // 모든 HTTP 메서드 허용 (OPTIONS 포함!)
