@@ -107,9 +107,10 @@ public class PhotoController {
                     example = """
                 [
                   {
-                    "latitude": 37.5665,
-                    "longitude": 126.9780,
-                    "takenAt": "2024-01-15T14:30:00"
+                    "originalName": "photo1.jpg",
+                    "takenAt": "2025-11-12T10:00:00",
+                    "latitude": 35.1584,
+                    "longitude": 129.1603
                   }
                 ]
                 """

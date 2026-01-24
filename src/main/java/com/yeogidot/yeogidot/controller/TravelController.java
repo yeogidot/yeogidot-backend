@@ -40,7 +40,7 @@ public class TravelController {
     // 여행 생성
     @Operation(
             summary = "여행 생성",
-            description = "새로운 여행을 생성합니다. 여행 제목, 지역, 기간, 포함할 사진들, 대표 사진을 설정할 수 있습니다."
+            description = "새로운 여행을 생성합니다. 사진들의 촬영 날짜를 기반으로 여행 기간이 자동으로 설정됩니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -80,9 +80,7 @@ public class TravelController {
                         {
                           "title": "제주도 여행",
                           "trvRegion": "제주특별자치도",
-                          "startDate": "2024-02-01",
-                          "endDate": "2024-02-03",
-                          "photoIds": [1, 2, 3, 4, 5],
+                          "photoIds": [1, 2, 3],
                           "representativePhotoId": 1
                         }
                         """
