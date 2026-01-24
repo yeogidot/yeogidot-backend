@@ -17,7 +17,7 @@ import java.util.Map;
 //여행 관련 API 요청을 처리하는 컨트롤러
 
 @RestController
-@RequestMapping("/api/v1/travels")
+@RequestMapping("/api/travels")
 @RequiredArgsConstructor
 public class TravelController {
 
