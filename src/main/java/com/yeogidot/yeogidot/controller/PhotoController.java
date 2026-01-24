@@ -116,36 +116,9 @@ public class PhotoController {
     }
 
     /**
-     * 🧪 테스트용: 모든 사진의 지도 마커 조회 (인증 불필요)
-     */
-    @GetMapping("/photos/map-markers")
-    public ResponseEntity<?> getAllMapMarkers() {
-        try {
-            // 위치 정보가 있는 모든 사진 조회
-            List<Photo> photos = photoService.getAllPhotos();
-
-            List<PhotoDto> markers = photos.stream()
-                    .filter(photo -> photo.getLatitude() != null && photo.getLongitude() != null)
-                    .map(photo -> PhotoDto.builder()
-                            .photoId(photo.getId())
-                            .latitude(photo.getLatitude())
-                            .longitude(photo.getLongitude())
-                            .thumbnailUrl(photo.getFilePath())
-                            .build())
-                    .collect(Collectors.toList());
-
-            return ResponseEntity.ok(markers);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "지도 마커 조회 실패: " + e.getMessage()));
-        }
-    }
-
-    /**
      * 사진 댓글 작성
      */
-    @PostMapping("/v1/photos/{photoId}/comments")
+    @PostMapping("/photos/{photoId}/comments")
     public ResponseEntity<Void> createComment(
             @PathVariable Long photoId,
             @RequestBody TravelDto.CommentRequest request) {
@@ -157,7 +130,7 @@ public class PhotoController {
     /**
      * 사진 댓글 수정
      */
-    @PutMapping("/v1/comments/{cmentId}")
+    @PutMapping("/comments/{cmentId}")
     public ResponseEntity<Void> updateComment(
             @PathVariable Long cmentId,
             @RequestBody TravelDto.CommentRequest request) {
@@ -201,7 +174,7 @@ public class PhotoController {
     }
 
     /**
-     * 사진 촬영시간 수정 API (Step 4에서 추가)
+     * 사진 촬영시간 수정 API
      */
     @PutMapping("/photos/{photoId}/taken-at")
     public ResponseEntity<?> updatePhotoTakenAt(
