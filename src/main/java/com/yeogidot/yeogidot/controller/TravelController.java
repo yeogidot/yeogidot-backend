@@ -4,6 +4,13 @@ import com.yeogidot.yeogidot.dto.TravelDto;
 import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.service.TravelService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,8 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-//여행 관련 API 요청을 처리하는 컨트롤러
-
+@Tag(name = "여행", description = "여행 생성, 조회, 삭제 및 관리 API")
 @RestController
 @RequestMapping("/api/travels")
 @RequiredArgsConstructor
@@ -32,10 +38,61 @@ public class TravelController {
     }
 
     // 여행 생성
+    @Operation(
+            summary = "여행 생성",
+            description = "새로운 여행을 생성합니다. 여행 제목, 지역, 기간, 포함할 사진들, 대표 사진을 설정할 수 있습니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "여행 생성 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = "1"
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 요청 (날짜 형식 오류, 사진 ID 없음 등)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "error": "시작일은 종료일보다 이전이어야 합니다"
+                    }
+                    """
+                            )
+                    )
+            )
+    })
     @PostMapping
-    public ResponseEntity<Long> createTravel(@RequestBody TravelDto.CreateRequest request) {
-        User user = getCurrentUser(); // 현재 로그인한 사람
-        Long travelId = travelService.createTravel(request, user); // 유저 정보 전달
+    public ResponseEntity<Long> createTravel(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "여행 생성 요청 데이터",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                        {
+                          "title": "제주도 여행",
+                          "trvRegion": "제주특별자치도",
+                          "startDate": "2024-02-01",
+                          "endDate": "2024-02-03",
+                          "photoIds": [1, 2, 3, 4, 5],
+                          "representativePhotoId": 1
+                        }
+                        """
+                            )
+                    )
+            )
+            @RequestBody TravelDto.CreateRequest request
+    ) {
+        User user = getCurrentUser();
+        Long travelId = travelService.createTravel(request, user);
         return ResponseEntity.ok(travelId);
     }
 
@@ -47,8 +104,49 @@ public class TravelController {
     }
 
     // 여행 삭제
+    @Operation(
+            summary = "여행 삭제",
+            description = "특정 여행을 삭제합니다. 여행에 속한 일차(Day)들과 여행 로그도 함께 삭제되지만, 사진은 삭제되지 않습니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "여행 삭제 성공"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음 (다른 사용자의 여행)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "error": "본인의 여행만 삭제할 수 있습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "여행을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "error": "해당 여행을 찾을 수 없습니다."
+                    }
+                    """
+                            )
+                    )
+            )
+    })
     @DeleteMapping("/{travelId}")
-    public ResponseEntity<Void> deleteTravel(@PathVariable Long travelId) {
+    public ResponseEntity<Void> deleteTravel(
+            @Parameter(description = "삭제할 여행의 ID", required = true, example = "1")
+            @PathVariable Long travelId
+    ) {
         User user = getCurrentUser();
         travelService.deleteTravel(travelId, user);
         return ResponseEntity.noContent().build();

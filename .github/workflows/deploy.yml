@@ -2,7 +2,7 @@ name: Deploy to GCP
 
 on:
   push:
-    branches: [ main, develop, feature/cors-fix ]  # 자동 배포
+    branches: [ main, develop, feature/cors-fix , feature/improve-swagger-docs]  # 자동 배포
 
 jobs:
   deploy:
