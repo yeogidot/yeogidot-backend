@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Tag(name = "사진", description = "사진 업로드, 조회, 삭제 API")
 @RestController
@@ -69,32 +68,8 @@ public class PhotoController {
                     )
             ),
             @ApiResponse(
-                    responseCode = "400",
-                    description = "잘못된 요청 (메타데이터 형식 오류)",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                    {
-                      "error": "메타데이터 형식이 올바르지 않습니다"
-                    }
-                    """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "서버 오류",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                    {
-                      "error": "파일 업로드 실패: 저장 공간 부족"
-                    }
-                    """
-                            )
-                    )
+                    responseCode = "403",
+                    description = "요청 실패 (인증 실패, 메타데이터 오류, 서버 오류 등)"
             )
     })
     @PostMapping(value = "/photos/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -102,18 +77,8 @@ public class PhotoController {
             @Parameter(description = "업로드할 이미지 파일 목록", required = true)
             @RequestParam("files") List<MultipartFile> files,
             @Parameter(
-                    description = "사진 메타데이터 (JSON 배열 형식)",
-                    required = true,
-                    example = """
-                [
-                  {
-                    "originalName": "photo1.jpg",
-                    "takenAt": "2025-11-12T10:00:00",
-                    "latitude": 35.1584,
-                    "longitude": 129.1603
-                  }
-                ]
-                """
+                    description = "각 파일의 메타데이터를 담은 JSON 배열 (String 형태로 전송)\n\n예시:\n[{\"originalName\":\"photo1.jpg\",\"takenAt\":\"2025-11-12T10:00:00\",\"latitude\":35.1584,\"longitude\":129.1603}]",
+                    required = true
             )
             @RequestParam("metadata") String metadata
     ) {
@@ -150,6 +115,20 @@ public class PhotoController {
     /**
      * 모든 사진 조회
      */
+    @Operation(
+            summary = "모든 사진 조회",
+            description = "업로드된 모든 사진을 조회합니다"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "사진 목록 조회 성공"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "요청 실패 (인증 실패, 서버 오류 등)"
+            )
+    })
     @GetMapping("/photos")
     public ResponseEntity<?> getAllPhotos() {
         try {
@@ -165,8 +144,25 @@ public class PhotoController {
     /**
      * 특정 사진 조회
      */
+    @Operation(
+            summary = "특정 사진 조회",
+            description = "사진ID로 특정 사진을 조회합니다"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "사진 조회 성공"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "요청 실패 (인증 실패, 사진 없음, 서버 오류 등)"
+            )
+    })
     @GetMapping("/photos/{photoId}")
-    public ResponseEntity<?> getPhotoById(@PathVariable Long photoId) {
+    public ResponseEntity<?> getPhotoById(
+            @Parameter(description = "조회할 사진의 ID", required = true, example = "1")
+            @PathVariable Long photoId
+    ) {
         try {
             Photo photo = photoService.getPhotoById(photoId);
             return ResponseEntity.ok(photo);
@@ -183,6 +179,20 @@ public class PhotoController {
     /**
      * 지도 마커 조회 (위치 정보가 있는 사진만) - 인증 필요
      */
+    @Operation(
+            summary = "지도 마커용 사진 조회",
+            description = "위치 정보가 있는 사진들만 조회합니다. 지도에 마커로 표시하기 위한 API입니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "지도 마커 사진 목록 조회 성공"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "요청 실패 (인증 실패 등)"
+            )
+    })
     @GetMapping("/map-photos")
     public ResponseEntity<List<PhotoDto>> getMapPhotos() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -197,10 +207,40 @@ public class PhotoController {
     /**
      * 사진 댓글 작성
      */
+    @Operation(
+            summary = "사진 댓글 작성",
+            description = "특정 사진에 댓글을 작성합니다"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "댓글 작성 성공"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "요청 실패 (인증 실패, 사진 없음 등)"
+            )
+    })
     @PostMapping("/photos/{photoId}/comments")
     public ResponseEntity<Void> createComment(
+            @Parameter(description = "댓글을 달 사진의 ID", required = true, example = "1")
             @PathVariable Long photoId,
-            @RequestBody TravelDto.CommentRequest request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "댓글 내용",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                        {
+                          "content": "멋진 사진이네요!"
+                        }
+                        """
+                            )
+                    )
+            )
+            @RequestBody TravelDto.CommentRequest request
+    ) {
         User user = getCurrentUser();
         photoService.createComment(photoId, request, user);
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -209,10 +249,40 @@ public class PhotoController {
     /**
      * 사진 댓글 수정
      */
+    @Operation(
+            summary = "사진 댓글 수정",
+            description = "기존 댓글의 내용을 수정합니다"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "댓글 수정 성공"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "요청 실패 (인증 실패, 권한 없음, 댓글 없음 등)"
+            )
+    })
     @PutMapping("/comments/{cmentId}")
     public ResponseEntity<Void> updateComment(
+            @Parameter(description = "수정할 댓글의 ID", required = true, example = "1")
             @PathVariable Long cmentId,
-            @RequestBody TravelDto.CommentRequest request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "수정할 댓글 내용",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                        {
+                          "content": "수정된 댓글 내용입니다."
+                        }
+                        """
+                            )
+                    )
+            )
+            @RequestBody TravelDto.CommentRequest request
+    ) {
         User user = getCurrentUser();
         photoService.updateComment(cmentId, request, user);
         return ResponseEntity.ok().build();
@@ -244,35 +314,7 @@ public class PhotoController {
             ),
             @ApiResponse(
                     responseCode = "403",
-                    description = "권한 없음 (다른 사용자의 사진)",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN_ACCESS",
-                      "message": "본인의 사진만 삭제할 수 있습니다."
-                    }
-                    """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "사진을 찾을 수 없음",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                    {
-                      "status": 404,
-                      "error": "PHOTO_NOT_FOUND",
-                      "message": "해당 사진을 찾을 수 없습니다."
-                    }
-                    """
-                            )
-                    )
+                    description = "요청 실패 (인증 실패, 권한 없음, 사진 없음 등)"
             )
     })
     @DeleteMapping("/photos/{photoId}")
@@ -312,10 +354,51 @@ public class PhotoController {
     /**
      * 사진 촬영시간 수정 API
      */
+    @Operation(
+            summary = "사진 촬영시간 수정",
+            description = "특정 사진의 촬영 시간을 수정합니다. 본인이 업로드한 사진만 수정 가능합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "촬영 시간 수정 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 200,
+                      "message": "촬영 시간이 수정되었습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "요청 실패 (인증 실패, 권한 없음, 사진 없음, 날짜 형식 오류 등)"
+            )
+    })
     @PutMapping("/photos/{photoId}/taken-at")
     public ResponseEntity<?> updatePhotoTakenAt(
+            @Parameter(description = "수정할 사진의 ID", required = true, example = "1")
             @PathVariable Long photoId,
-            @RequestBody Map<String, String> request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "새로운 촬영 시간",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                        {
+                          "takenAt": "2025-01-15T14:30:00"
+                        }
+                        """
+                            )
+                    )
+            )
+            @RequestBody Map<String, String> request
+    ) {
         try {
             User user = getCurrentUser();
             // takenAt 문자열을 LocalDateTime으로 변환
@@ -352,10 +435,51 @@ public class PhotoController {
     /**
      * 사진을 특정 날짜로 이동
      */
+    @Operation(
+            summary = "사진을 특정 여행 일차로 이동",
+            description = "사진을 다른 여행 일차(Day)로 이동시킵니다. 본인이 업로드한 사진만 이동 가능합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "사진 이동 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 200,
+                      "message": "사진이 이동되었습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "요청 실패 (인증 실패, 권한 없음, 사진/일차 없음 등)"
+            )
+    })
     @PutMapping("/photos/{photoId}/travel-day")
     public ResponseEntity<?> movePhotoToDay(
+            @Parameter(description = "이동할 사진의 ID", required = true, example = "1")
             @PathVariable Long photoId,
-            @RequestBody MovePhotoRequest request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "이동할 목적지 여행 일차 ID",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                        {
+                          "dayId": 5
+                        }
+                        """
+                            )
+                    )
+            )
+            @RequestBody MovePhotoRequest request
+    ) {
         try {
             User user = getCurrentUser();
             photoService.movePhotoToDay(photoId, request.getDayId(), user.getId());

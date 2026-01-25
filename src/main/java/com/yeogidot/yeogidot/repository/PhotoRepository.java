@@ -1,6 +1,7 @@
 package com.yeogidot.yeogidot.repository;
 
 import com.yeogidot.yeogidot.entity.Photo;
+import com.yeogidot.yeogidot.entity.TravelDay;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,4 +14,6 @@ public interface PhotoRepository extends JpaRepository<Photo, Long> {
             "WHERE p.user.id = :userId " +
             "AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL")
     List<Photo> findAllByUserId(@Param("userId") Long userId);
+    List<Photo> findByTravelDay(TravelDay travelDay); // 추가
+
 }
