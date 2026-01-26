@@ -55,11 +55,15 @@ public class PhotoController {
                     {
                       "uploadedPhotos": [
                         {
+                          "createdDate": "2026-01-25T21:31:03.277223",
+                          "modifiedDate": "2026-01-25T22:42:46.115681",
                           "id": 1,
-                          "filePath": "https://storage.googleapis.com/.../photo1.jpg",
+                          "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
+                          "originalName": "test.jpg",
                           "latitude": 37.5665,
                           "longitude": 126.9780,
-                          "takenAt": "2024-01-15T14:30:00"
+                          "takenAt": "2024-01-15T14:30:00",
+                          "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
                         }
                       ]
                     }
@@ -68,8 +72,48 @@ public class PhotoController {
                     )
             ),
             @ApiResponse(
-                    responseCode = "403",
-                    description = "요청 실패 (인증 실패, 메타데이터 오류, 서버 오류 등)"
+                    responseCode = "400",
+                    description = "잘못된 요청 (메타데이터 형식 오류 등)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "error": "메타데이터 형식이 올바르지 않습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "서버 오류 (파일 업로드 실패 등)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "error": "파일 업로드 실패: I/O 오류"
+                    }
+                    """
+                            )
+                    )
             )
     })
     @PostMapping(value = "/photos/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -117,17 +161,75 @@ public class PhotoController {
      */
     @Operation(
             summary = "모든 사진 조회",
-            description = "업로드된 모든 사진을 조회합니다"
+            description = "업로드된 모든 사진을 조회합니다. JWT 토큰으로 인증된 사용자의 사진만 조회됩니다."
     )
     @ApiResponses({
             @ApiResponse(
                     responseCode = "200",
-                    description = "사진 목록 조회 성공"
+                    description = "사진 목록 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    [
+                      {
+                        "createdDate": "2026-01-25T21:31:03.277223",
+                        "modifiedDate": "2026-01-25T22:42:46.115681",
+                        "id": 14,
+                        "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
+                        "originalName": "test.jpg",
+                        "latitude": 35.1584,
+                        "longitude": 129.1603,
+                        "takenAt": "2026-01-15T14:30:00",
+                        "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
+                      },
+                      {
+                        "createdDate": "2026-01-25T21:36:59.021477",
+                        "modifiedDate": "2026-01-25T22:42:46.123844",
+                        "id": 15,
+                        "filePath": "https://storage.googleapis.com/yeogidot-storage/photo2.jpg",
+                        "originalName": "test.jpg",
+                        "latitude": 35.1584,
+                        "longitude": 129.1603,
+                        "takenAt": "2026-01-12T10:00:00",
+                        "url": "https://storage.googleapis.com/yeogidot-storage/photo2.jpg"
+                      }
+                    ]
+                    """
+                            )
+                    )
             ),
             @ApiResponse(
-                    responseCode = "403",
-                    description = "요청 실패 (인증 실패, 서버 오류 등)"
-            )
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "서버 내부 오류",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "error": "사진 조회 실패: 서버 오류"
+                    }
+                    """
+                            )
+                    )
+            ),
+
     })
     @GetMapping("/photos")
     public ResponseEntity<?> getAllPhotos() {
@@ -151,11 +253,69 @@ public class PhotoController {
     @ApiResponses({
             @ApiResponse(
                     responseCode = "200",
-                    description = "사진 조회 성공"
+                    description = "사진 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "createdDate": "2026-01-25T21:31:03.277223",
+                      "modifiedDate": "2026-01-25T22:42:46.115681",
+                      "id": 1,
+                      "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
+                      "originalName": "test.jpg",
+                      "latitude": 37.5665,
+                      "longitude": 126.9780,
+                      "takenAt": "2024-01-15T14:30:00",
+                      "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
+                    }
+                    """
+                            )
+                    )
             ),
             @ApiResponse(
-                    responseCode = "403",
-                    description = "요청 실패 (인증 실패, 사진 없음, 서버 오류 등)"
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "사진을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "error": "사진을 찾을 수 없습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "서버 내부 오류",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "error": "사진 조회 실패: 서버 오류"
+                    }
+                    """
+                            )
+                    )
             )
     })
     @GetMapping("/photos/{photoId}")
@@ -186,11 +346,44 @@ public class PhotoController {
     @ApiResponses({
             @ApiResponse(
                     responseCode = "200",
-                    description = "지도 마커 사진 목록 조회 성공"
+                    description = "지도 마커 사진 목록 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    [
+                      {
+                        "photoId": 1,
+                        "thumbnailUrl": "https://storage.googleapis.com/bucket/photo1.jpg",
+                        "latitude": 37.5665,
+                        "longitude": 126.9780
+                      },
+                      {
+                        "photoId": 2,
+                        "thumbnailUrl": "https://storage.googleapis.com/bucket/photo2.jpg",
+                        "latitude": 35.1796,
+                        "longitude": 129.0756
+                      }
+                    ]
+                    """
+                            )
+                    )
             ),
             @ApiResponse(
-                    responseCode = "403",
-                    description = "요청 실패 (인증 실패 등)"
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
             )
     })
     @GetMapping("/map-photos")
@@ -217,8 +410,36 @@ public class PhotoController {
                     description = "댓글 작성 성공"
             ),
             @ApiResponse(
-                    responseCode = "403",
-                    description = "요청 실패 (인증 실패, 사진 없음 등)"
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "사진을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 404,
+                      "error": "NOT_FOUND",
+                      "message": "사진을 찾을 수 없습니다."
+                    }
+                    """
+                            )
+                    )
             )
     })
     @PostMapping("/photos/{photoId}/comments")
@@ -259,8 +480,52 @@ public class PhotoController {
                     description = "댓글 수정 성공"
             ),
             @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
                     responseCode = "403",
-                    description = "요청 실패 (인증 실패, 권한 없음, 댓글 없음 등)"
+                    description = "권한 없음 (다른 사용자의 댓글)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 403,
+                      "error": "FORBIDDEN",
+                      "message": "댓글을 수정할 권한이 없습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "댓글을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 404,
+                      "error": "NOT_FOUND",
+                      "message": "댓글을 찾을 수 없습니다."
+                    }
+                    """
+                            )
+                    )
             )
     })
     @PutMapping("/comments/{cmentId}")
@@ -289,6 +554,77 @@ public class PhotoController {
     }
 
     /**
+     * 사진 댓글 삭제
+     */
+    @Operation(
+            summary = "사진 댓글 삭제",
+            description = "기존 댓글을 삭제합니다"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "댓글 삭제 성공 (응답 본문 없음)"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음 (다른 사용자의 댓글)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 403,
+                      "error": "FORBIDDEN",
+                      "message": "댓글을 삭제할 권한이 없습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "댓글을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 404,
+                      "error": "NOT_FOUND",
+                      "message": "댓글을 찾을 수 없습니다."
+                    }
+                    """
+                            )
+                    )
+            )
+    })
+    @DeleteMapping("/comments/{cmentId}")
+    public ResponseEntity<Void> deleteComment(
+            @Parameter(description = "삭제할 댓글의 ID", required = true, example = "1")
+            @PathVariable Long cmentId
+    ) {
+        User user = getCurrentUser();
+        photoService.deleteComment(cmentId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * 사진 삭제 API
      */
     @Operation(
@@ -313,8 +649,52 @@ public class PhotoController {
                     )
             ),
             @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
                     responseCode = "403",
-                    description = "요청 실패 (인증 실패, 권한 없음, 사진 없음 등)"
+                    description = "권한 없음 (다른 사용자의 사진)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 403,
+                      "error": "FORBIDDEN_ACCESS",
+                      "message": "본인의 사진만 삭제할 수 있습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "사진을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 404,
+                      "error": "PHOTO_NOT_FOUND",
+                      "message": "사진을 찾을 수 없습니다."
+                    }
+                    """
+                            )
+                    )
             )
     })
     @DeleteMapping("/photos/{photoId}")
@@ -374,9 +754,70 @@ public class PhotoController {
                             )
                     )
             ),
+
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 요청 (날짜 형식 오류 등)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 400,
+                      "error": "INVALID_REQUEST",
+                      "message": "잘못된 요청입니다: 날짜 형식이 올바르지 않습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
             @ApiResponse(
                     responseCode = "403",
-                    description = "요청 실패 (인증 실패, 권한 없음, 사진 없음, 날짜 형식 오류 등)"
+                    description = "권한 없음 (다른 사용자의 사진)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 403,
+                      "error": "FORBIDDEN",
+                      "message": "본인의 사진만 수정할 수 있습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "사진을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 404,
+                      "error": "PHOTO_NOT_FOUND",
+                      "message": "사진을 찾을 수 없습니다."
+                    }
+                    """
+                            )
+                    )
             )
     })
     @PutMapping("/photos/{photoId}/taken-at")
@@ -456,8 +897,52 @@ public class PhotoController {
                     )
             ),
             @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "인증이 필요합니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
                     responseCode = "403",
-                    description = "요청 실패 (인증 실패, 권한 없음, 사진/일차 없음 등)"
+                    description = "권한 없음 (다른 사용자의 사진)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 403,
+                      "error": "FORBIDDEN",
+                      "message": "본인의 사진만 이동할 수 있습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "사진 또는 일차를 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 404,
+                      "error": "NOT_FOUND",
+                      "message": "사진 또는 여행 일차를 찾을 수 없습니다."
+                    }
+                    """
+                            )
+                    )
             )
     })
     @PutMapping("/photos/{photoId}/travel-day")

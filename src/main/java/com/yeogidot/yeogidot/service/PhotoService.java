@@ -4,10 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeogidot.yeogidot.dto.PhotoDto;
 import com.yeogidot.yeogidot.dto.TravelDto;
-import com.yeogidot.yeogidot.entity.Cment;
-import com.yeogidot.yeogidot.entity.Photo;
-import com.yeogidot.yeogidot.entity.TravelDay;
-import com.yeogidot.yeogidot.entity.User;
+import com.yeogidot.yeogidot.entity.*;
 import com.yeogidot.yeogidot.repository.CmentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
@@ -140,6 +137,21 @@ public class PhotoService {
         
         cment.updateContent(request.getContent());
     }
+    /**
+     * 댓글 삭제 기능
+     */
+    @Transactional
+    public void deleteComment(Long cmentId, User user) {
+        Cment cment = cmentRepository.findById(cmentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다."));
+
+        // 권한 검증: 댓글이 달린 사진의 소유자만 삭제 가능
+        if (!cment.getPhoto().getUser().getId().equals(user.getId())) {
+            throw new SecurityException("해당 댓글을 삭제할 권한이 없습니다.");
+        }
+
+        cmentRepository.delete(cment);
+    }
 
     /**
      * 사진 상세 정보 조회
@@ -170,13 +182,21 @@ public class PhotoService {
     /// 사진 삭제 기능
     @Transactional
     public Long deletePhoto(Long photoId, Long currentUserId) {
-        // 사진 조회 (없으면 404)
+
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사진입니다."));
 
         // 권한 검증
-        // 경로: photo -> travelDay -> travel -> user -> id 비교
         validatePhotoOwnership(photo, currentUserId);
+
+        // 대표 사진 처리
+        if (photo.getTravelDay() != null) {
+            Travel travel = photo.getTravelDay().getTravel();
+            if (travel.getRepresentativePhotoId() != null &&
+                    travel.getRepresentativePhotoId().equals(photoId)) {
+                travel.updateRepresentativePhoto(null);
+            }
+        }
 
         // GCS 파일 삭제
         gcsService.deleteFile(photo.getFilePath());
