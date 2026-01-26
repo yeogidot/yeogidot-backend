@@ -5,7 +5,8 @@ import lombok.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.Set;
+import java.util.LinkedHashSet;
 //여행 엔티티
 
 @Entity
@@ -45,7 +46,7 @@ public class Travel extends BaseTimeEntity {
 
     @OneToMany(mappedBy = "travel", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<TravelDay> travelDays = new ArrayList<>();
+    private Set<TravelDay> travelDays = new LinkedHashSet<>();
 
     public void addDay(TravelDay day) {
         this.travelDays.add(day);
