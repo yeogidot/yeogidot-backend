@@ -43,8 +43,52 @@ public class AuthController {
                     )
             ),
             @ApiResponse(
-                    responseCode = "403",
-                    description = "회원가입 실패 (이미 존재하는 이메일, 비밀번호 불일치, 개인정보 동의 미체크 등)"
+                    responseCode = "400",
+                    description = "잘못된 요청 (비밀번호 불일치, 개인정보 동의 미체크 등)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 400,
+                      "error": "BAD_REQUEST",
+                      "message": "비밀번호가 일치하지 않습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "이미 존재하는 이메일",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 409,
+                      "error": "CONFLICT",
+                      "message": "이미 가입된 이메일입니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "서버 오류",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 500,
+                      "error": "INTERNAL_SERVER_ERROR",
+                      "message": "회원가입 처리 중 오류가 발생했습니다."
+                    }
+                    """
+                            )
+                    )
             )
     })
     @PostMapping("/signup")
@@ -96,8 +140,52 @@ public class AuthController {
                     )
             ),
             @ApiResponse(
-                    responseCode = "403",
-                    description = "로그인 실패 (이메일 또는 비밀번호 불일치, 잘못된 요청 등)"
+                    responseCode = "400",
+                    description = "잘못된 요청 (이메일 또는 비밀번호 누락 등)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 400,
+                      "error": "BAD_REQUEST",
+                      "message": "이메일과 비밀번호를 입력해주세요."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 (이메일 또는 비밀번호 불일치)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 401,
+                      "error": "UNAUTHORIZED",
+                      "message": "이메일 또는 비밀번호가 일치하지 않습니다."
+                    }
+                    """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "사용자를 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                    {
+                      "status": 404,
+                      "error": "NOT_FOUND",
+                      "message": "가입되지 않은 이메일입니다."
+                    }
+                    """
+                            )
+                    )
             )
     })
     @PostMapping("/login")
