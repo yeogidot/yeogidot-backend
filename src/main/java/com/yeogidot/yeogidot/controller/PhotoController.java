@@ -52,22 +52,22 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "uploadedPhotos": [
-                        {
-                          "createdDate": "2026-01-25T21:31:03.277223",
-                          "modifiedDate": "2026-01-25T22:42:46.115681",
-                          "id": 1,
-                          "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
-                          "originalName": "test.jpg",
-                          "latitude": 37.5665,
-                          "longitude": 126.9780,
-                          "takenAt": "2024-01-15T14:30:00",
-                          "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
-                        }
-                      ]
-                    }
-                    """
+                                            {
+                                              "uploadedPhotos": [
+                                                {
+                                                  "createdDate": "2026-01-25T21:31:03.277223",
+                                                  "modifiedDate": "2026-01-25T22:42:46.115681",
+                                                  "id": 1,
+                                                  "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
+                                                  "originalName": "test.jpg",
+                                                  "latitude": 37.5665,
+                                                  "longitude": 126.9780,
+                                                  "takenAt": "2024-01-15T14:30:00",
+                                                  "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
+                                                }
+                                              ]
+                                            }
+                                            """
                             )
                     )
             ),
@@ -78,10 +78,10 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "error": "메타데이터 형식이 올바르지 않습니다."
-                    }
-                    """
+                                            {
+                                              "error": "메타데이터 형식이 올바르지 않습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -92,12 +92,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -108,10 +108,10 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "error": "파일 업로드 실패: I/O 오류"
-                    }
-                    """
+                                            {
+                                              "error": "파일 업로드 실패: I/O 오류"
+                                            }
+                                            """
                             )
                     )
             )
@@ -171,31 +171,31 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    [
-                      {
-                        "createdDate": "2026-01-25T21:31:03.277223",
-                        "modifiedDate": "2026-01-25T22:42:46.115681",
-                        "id": 14,
-                        "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
-                        "originalName": "test.jpg",
-                        "latitude": 35.1584,
-                        "longitude": 129.1603,
-                        "takenAt": "2026-01-15T14:30:00",
-                        "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
-                      },
-                      {
-                        "createdDate": "2026-01-25T21:36:59.021477",
-                        "modifiedDate": "2026-01-25T22:42:46.123844",
-                        "id": 15,
-                        "filePath": "https://storage.googleapis.com/yeogidot-storage/photo2.jpg",
-                        "originalName": "test.jpg",
-                        "latitude": 35.1584,
-                        "longitude": 129.1603,
-                        "takenAt": "2026-01-12T10:00:00",
-                        "url": "https://storage.googleapis.com/yeogidot-storage/photo2.jpg"
-                      }
-                    ]
-                    """
+                                            [
+                                              {
+                                                "createdDate": "2026-01-25T21:31:03.277223",
+                                                "modifiedDate": "2026-01-25T22:42:46.115681",
+                                                "id": 14,
+                                                "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
+                                                "originalName": "test.jpg",
+                                                "latitude": 35.1584,
+                                                "longitude": 129.1603,
+                                                "takenAt": "2026-01-15T14:30:00",
+                                                "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
+                                              },
+                                              {
+                                                "createdDate": "2026-01-25T21:36:59.021477",
+                                                "modifiedDate": "2026-01-25T22:42:46.123844",
+                                                "id": 15,
+                                                "filePath": "https://storage.googleapis.com/yeogidot-storage/photo2.jpg",
+                                                "originalName": "test.jpg",
+                                                "latitude": 35.1584,
+                                                "longitude": 129.1603,
+                                                "takenAt": "2026-01-12T10:00:00",
+                                                "url": "https://storage.googleapis.com/yeogidot-storage/photo2.jpg"
+                                              }
+                                            ]
+                                            """
                             )
                     )
             ),
@@ -206,12 +206,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -222,10 +222,10 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "error": "사진 조회 실패: 서버 오류"
-                    }
-                    """
+                                            {
+                                              "error": "사진 조회 실패: 서버 오류"
+                                            }
+                                            """
                             )
                     )
             ),
@@ -258,18 +258,18 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "createdDate": "2026-01-25T21:31:03.277223",
-                      "modifiedDate": "2026-01-25T22:42:46.115681",
-                      "id": 1,
-                      "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
-                      "originalName": "test.jpg",
-                      "latitude": 37.5665,
-                      "longitude": 126.9780,
-                      "takenAt": "2024-01-15T14:30:00",
-                      "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
-                    }
-                    """
+                                            {
+                                              "createdDate": "2026-01-25T21:31:03.277223",
+                                              "modifiedDate": "2026-01-25T22:42:46.115681",
+                                              "id": 1,
+                                              "filePath": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg",
+                                              "originalName": "test.jpg",
+                                              "latitude": 37.5665,
+                                              "longitude": 126.9780,
+                                              "takenAt": "2024-01-15T14:30:00",
+                                              "url": "https://storage.googleapis.com/yeogidot-storage/photo1.jpg"
+                                            }
+                                            """
                             )
                     )
             ),
@@ -280,12 +280,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -296,10 +296,10 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "error": "사진을 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "error": "사진을 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -310,10 +310,10 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "error": "사진 조회 실패: 서버 오류"
-                    }
-                    """
+                                            {
+                                              "error": "사진 조회 실패: 서버 오류"
+                                            }
+                                            """
                             )
                     )
             )
@@ -351,21 +351,21 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    [
-                      {
-                        "photoId": 1,
-                        "thumbnailUrl": "https://storage.googleapis.com/bucket/photo1.jpg",
-                        "latitude": 37.5665,
-                        "longitude": 126.9780
-                      },
-                      {
-                        "photoId": 2,
-                        "thumbnailUrl": "https://storage.googleapis.com/bucket/photo2.jpg",
-                        "latitude": 35.1796,
-                        "longitude": 129.0756
-                      }
-                    ]
-                    """
+                                            [
+                                              {
+                                                "photoId": 1,
+                                                "thumbnailUrl": "https://storage.googleapis.com/bucket/photo1.jpg",
+                                                "latitude": 37.5665,
+                                                "longitude": 126.9780
+                                              },
+                                              {
+                                                "photoId": 2,
+                                                "thumbnailUrl": "https://storage.googleapis.com/bucket/photo2.jpg",
+                                                "latitude": 35.1796,
+                                                "longitude": 129.0756
+                                              }
+                                            ]
+                                            """
                             )
                     )
             ),
@@ -376,12 +376,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -416,12 +416,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -432,18 +432,18 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "사진을 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "사진을 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
     })
     @PostMapping("/photos/{photoId}/comments")
-    public ResponseEntity<Void> createComment(
+    public ResponseEntity<?> createComment(
             @Parameter(description = "댓글을 달 사진의 ID", required = true, example = "1")
             @PathVariable Long photoId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -453,18 +453,22 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "content": "멋진 사진이네요!"
-                        }
-                        """
+                                            {
+                                              "content": "멋진 사진이네요!"
+                                            }
+                                            """
                             )
                     )
             )
             @RequestBody TravelDto.CommentRequest request
     ) {
         User user = getCurrentUser();
-        photoService.createComment(photoId, request, user);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        Long cmentId = photoService.createComment(photoId, request, user);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "cmentId", cmentId,
+                "message", "댓글이 작성되었습니다."
+        ));
     }
 
     /**
@@ -486,12 +490,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -502,12 +506,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "댓글을 수정할 권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "댓글을 수정할 권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -518,12 +522,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "댓글을 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "댓글을 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -539,10 +543,10 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "content": "수정된 댓글 내용입니다."
-                        }
-                        """
+                                            {
+                                              "content": "수정된 댓글 내용입니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -572,12 +576,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -588,12 +592,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "댓글을 삭제할 권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "댓글을 삭제할 권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -604,12 +608,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "댓글을 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "댓글을 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -639,12 +643,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 200,
-                      "message": "사진과 코멘트가 삭제되었습니다.",
-                      "deletedPhotoId": 123
-                    }
-                    """
+                                            {
+                                              "status": 200,
+                                              "message": "사진과 코멘트가 삭제되었습니다.",
+                                              "deletedPhotoId": 123
+                                            }
+                                            """
                             )
                     )
             ),
@@ -655,12 +659,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -671,12 +675,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN_ACCESS",
-                      "message": "본인의 사진만 삭제할 수 있습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN_ACCESS",
+                                              "message": "본인의 사진만 삭제할 수 있습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -687,12 +691,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "PHOTO_NOT_FOUND",
-                      "message": "사진을 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "PHOTO_NOT_FOUND",
+                                              "message": "사진을 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -746,11 +750,11 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 200,
-                      "message": "촬영 시간이 수정되었습니다."
-                    }
-                    """
+                                            {
+                                              "status": 200,
+                                              "message": "촬영 시간이 수정되었습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -762,12 +766,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 400,
-                      "error": "INVALID_REQUEST",
-                      "message": "잘못된 요청입니다: 날짜 형식이 올바르지 않습니다."
-                    }
-                    """
+                                            {
+                                              "status": 400,
+                                              "error": "INVALID_REQUEST",
+                                              "message": "잘못된 요청입니다: 날짜 형식이 올바르지 않습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -778,12 +782,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -794,12 +798,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "본인의 사진만 수정할 수 있습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "본인의 사진만 수정할 수 있습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -810,12 +814,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "PHOTO_NOT_FOUND",
-                      "message": "사진을 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "PHOTO_NOT_FOUND",
+                                              "message": "사진을 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -831,10 +835,10 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "takenAt": "2025-01-15T14:30:00"
-                        }
-                        """
+                                            {
+                                              "takenAt": "2025-01-15T14:30:00"
+                                            }
+                                            """
                             )
                     )
             )
@@ -888,11 +892,11 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 200,
-                      "message": "사진이 이동되었습니다."
-                    }
-                    """
+                                            {
+                                              "status": 200,
+                                              "message": "사진이 이동되었습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -903,12 +907,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -919,12 +923,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "본인의 사진만 이동할 수 있습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "본인의 사진만 이동할 수 있습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -935,12 +939,12 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "사진 또는 여행 일차를 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "사진 또는 여행 일차를 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -956,10 +960,10 @@ public class PhotoController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "dayId": 5
-                        }
-                        """
+                                            {
+                                              "dayId": 5
+                                            }
+                                            """
                             )
                     )
             )

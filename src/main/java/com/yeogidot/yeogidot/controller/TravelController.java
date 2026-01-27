@@ -44,25 +44,25 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    [
-                      {
-                        "travelId": 1,
-                        "title": "제주도 여행",
-                        "trvRegion": "제주특별자치도",
-                        "startDate": "2025-01-15",
-                        "endDate": "2025-01-18",
-                        "representativeImageUrl": "https://storage.googleapis.com/bucket/photo1.jpg"
-                      },
-                      {
-                        "travelId": 2,
-                        "title": "부산 여행",
-                        "trvRegion": "부산광역시",
-                        "startDate": "2025-02-01",
-                        "endDate": "2025-02-03",
-                        "representativeImageUrl": "https://storage.googleapis.com/bucket/photo5.jpg"
-                      }
-                    ]
-                    """
+                                            [
+                                              {
+                                                "travelId": 1,
+                                                "title": "제주도 여행",
+                                                "trvRegion": "제주특별자치도",
+                                                "startDate": "2025-01-15",
+                                                "endDate": "2025-01-18",
+                                                "representativeImageUrl": "https://storage.googleapis.com/bucket/photo1.jpg"
+                                              },
+                                              {
+                                                "travelId": 2,
+                                                "title": "부산 여행",
+                                                "trvRegion": "부산광역시",
+                                                "startDate": "2025-02-01",
+                                                "endDate": "2025-02-03",
+                                                "representativeImageUrl": "https://storage.googleapis.com/bucket/photo5.jpg"
+                                              }
+                                            ]
+                                            """
                             )
                     )
             ),
@@ -73,12 +73,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -112,12 +112,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 400,
-                      "error": "BAD_REQUEST",
-                      "message": "최소 1장 이상의 사진을 선택해주세요."
-                    }
-                    """
+                                            {
+                                              "status": 400,
+                                              "error": "BAD_REQUEST",
+                                              "message": "최소 1장 이상의 사진을 선택해주세요."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -128,12 +128,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -147,12 +147,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "title": "제주도 여행",
-                          "photoIds": [1, 2, 3, 4, 5],
-                          "representativePhotoId": 1
-                        }
-                        """
+                                            {
+                                              "title": "제주도 여행",
+                                              "photoIds": [1, 2, 3, 4, 5],
+                                              "representativePhotoId": 1
+                                            }
+                                            """
                             )
                     )
             )
@@ -176,75 +176,75 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "travelId": 1,
-                      "title": "제주도 여행",
-                      "trvRegion": "제주특별자치도",
-                      "representativePhotoId": 3,
-                      "shareUrl": "https://travel.vercel.app/share/abc-123-def",
-                      "startDate": "2025-01-15",
-                      "endDate": "2025-01-18",
-                      "days": [
-                        {
-                          "dayId": 115,
-                          "dayNumber": 1,
-                          "date": "2025-01-15",
-                          "dayRegion": "제주시",
-                          "photos": [
-                            {
-                              "photoId": 1,
-                              "url": "https://storage.googleapis.com/bucket/photo1.jpg",
-                              "takenAt": "2025-01-15T10:30:00Z",
-                              "latitude": 33.5145,
-                              "longitude": 126.5294,
-                              "comments": [
-                                {
-                                  "commentId": 1,
-                                  "content": "정말 아름다운 풍경이네요!",
-                                  "createdAt": "2025-01-15T14:20:00Z"
-                                },
-                                {
-                                  "commentId": 2,
-                                  "content": "다음에 또 가고 싶어요",
-                                  "createdAt": "2025-01-15T15:10:00Z"
-                                }
-                              ]
-                            },
-                            {
-                              "photoId": 2,
-                              "url": "https://storage.googleapis.com/bucket/photo2.jpg",
-                              "takenAt": "2025-01-15T14:45:00Z",
-                              "latitude": 33.5201,
-                              "longitude": 126.5333,
-                              "comments": []
-                            }
-                          ],
-                          "diary": {
-                            "logId": 5,
-                            "content": "첫날은 성산일출봉에 다녀왔습니다. 날씨가 정말 좋았어요!",
-                            "logCreated": "2025-01-15T20:00:00Z"
-                          }
-                        },
-                        {
-                          "dayId": 116,
-                          "dayNumber": 2,
-                          "date": "2025-01-16",
-                          "dayRegion": "서귀포시",
-                          "photos": [
-                            {
-                              "photoId": 3,
-                              "url": "https://storage.googleapis.com/bucket/photo3.jpg",
-                              "takenAt": "2025-01-16T09:15:00Z",
-                              "latitude": 33.2541,
-                              "longitude": 126.5604,
-                              "comments": []
-                            }
-                          ],
-                          "diary": null
-                        }
-                      ]
-                    }
-                    """
+                                            {
+                                                          "travelId": 1,
+                                                   "title": "제주도 여행",
+                                                   "trvRegion": "제주특별자치도",
+                                                   "representativePhotoId": 3,
+                                                   "shareUrl": "https://travel.vercel.app/share/abc-123-def",
+                                                   "startDate": "2025-01-15",
+                                                   "endDate": "2025-01-18",
+                                                   "days": [
+                                                     {
+                                                       "dayId": 115,
+                                                       "dayNumber": 1,
+                                                       "date": "2025-01-15",
+                                                       "dayRegion": "제주시",
+                                                       "photos": [
+                                                         {
+                                                           "photoId": 1,
+                                                           "url": "https://storage.googleapis.com/bucket/photo1.jpg",
+                                                           "takenAt": "2025-01-15T10:30:00Z",
+                                                           "latitude": 33.5145,
+                                                           "longitude": 126.5294,
+                                                           "comments": [
+                                                             {
+                                                               "commentId": 1,
+                                                               "content": "정말 아름다운 풍경이네요!",
+                                                               "createdAt": "2025-01-15T14:20:00Z"
+                                                             },
+                                                             {
+                                                               "commentId": 2,
+                                                               "content": "다음에 또 가고 싶어요",
+                                                               "createdAt": "2025-01-15T15:10:00Z"
+                                                             }
+                                                           ]
+                                                         },
+                                                         {
+                                                           "photoId": 2,
+                                                           "url": "https://storage.googleapis.com/bucket/photo2.jpg",
+                                                           "takenAt": "2025-01-15T14:45:00Z",
+                                                           "latitude": 33.5201,
+                                                           "longitude": 126.5333,
+                                                           "comments": []
+                                                         }
+                                                       ],
+                                                       "diary": {
+                                                         "logId": 5,
+                                                         "content": "첫날은 성산일출봉에 다녀왔습니다. 날씨가 정말 좋았어요!",
+                                                         "logCreated": "2025-01-15T20:00:00Z"
+                                                       }
+                                                     },
+                                                     {
+                                                       "dayId": 116,
+                                                       "dayNumber": 2,
+                                                       "date": "2025-01-16",
+                                                       "dayRegion": "서귀포시",
+                                                       "photos": [
+                                                         {
+                                                           "photoId": 3,
+                                                           "url": "https://storage.googleapis.com/bucket/photo3.jpg",
+                                                           "takenAt": "2025-01-16T09:15:00Z",
+                                                           "latitude": 33.2541,
+                                                           "longitude": 126.5604,
+                                                           "comments": []
+                                                         }
+                                                       ],
+                                                       "diary": null
+                                                     }
+                                                   ]
+                                                 }
+                                            """
                             )
                     )
             ),
@@ -255,12 +255,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -271,12 +271,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "해당 여행을 조회할 권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "해당 여행을 조회할 권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -287,12 +287,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "여행 기록을 찾을 수 없습니다. ID=999"
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "여행 기록을 찾을 수 없습니다. ID=999"
+                                            }
+                                            """
                             )
                     )
             )
@@ -323,12 +323,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -339,12 +339,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "삭제 권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "삭제 권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -355,12 +355,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "존재하지 않는 여행입니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "존재하지 않는 여행입니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -388,13 +388,13 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "dayId": 115,
-                      "dayNumber": 1,
-                      "date": "2025-01-15",
-                      "dayRegion": "제주시"
-                    }
-                    """
+                                            {
+                                              "dayId": 115,
+                                              "dayNumber": 1,
+                                              "date": "2025-01-15",
+                                              "dayRegion": "제주시"
+                                            }
+                                            """
                             )
                     )
             ),
@@ -405,12 +405,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -421,12 +421,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "조회 권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "조회 권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -437,12 +437,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "해당 일차 정보를 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "해당 일차 정보를 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -461,7 +461,7 @@ public class TravelController {
     // 여행 일차 삭제
     @Operation(
             summary = "여행 일차 삭제",
-            description = "특정 여행 일차(Day)를 삭제합니다. 해당 일차에 속한 사진의 연결이 해제되고(사진은 유지), 여행 로그는 삭제됩니다."
+            description = "특정 여행 일차(Day)를 삭제합니다. 해당 일차에 속한 사진(GCS 파일 포함)과 여행 로그가 모두 삭제됩니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -475,12 +475,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "인증이 필요합니다."
-                    }
-                    """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -491,12 +491,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "삭제 권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "삭제 권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -507,12 +507,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "존재하지 않는 일차입니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "존재하지 않는 일차입니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -540,12 +540,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 200,
-                      "message": "날짜가 추가되었습니다.",
-                      "dayId": 125
-                    }
-                    """
+                                            {
+                                              "status": 200,
+                                              "message": "날짜가 추가되었습니다.",
+                                              "dayId": 125
+                                            }
+                                            """
                             )
                     )
             ),
@@ -556,12 +556,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 400,
-                      "error": "BAD_REQUEST",
-                      "message": "해당 날짜는 이미 존재합니다."
-                    }
-                    """
+                                            {
+                                              "status": 400,
+                                              "error": "BAD_REQUEST",
+                                              "message": "해당 날짜는 이미 존재합니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -572,12 +572,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -593,10 +593,10 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "date": "2025-01-20"
-                        }
-                        """
+                                            {
+                                              "date": "2025-01-20"
+                                            }
+                                            """
                             )
                     )
             )
@@ -624,11 +624,11 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 200,
-                      "message": "3개의 사진이 추가되었습니다."
-                    }
-                    """
+                                            {
+                                              "status": 200,
+                                              "message": "3개의 사진이 추가되었습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -639,12 +639,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "본인의 사진만 추가할 수 있습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "본인의 사진만 추가할 수 있습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -655,12 +655,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "ID 5 사진을 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "ID 5 사진을 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -676,10 +676,10 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "photoIds": [1, 2, 3]
-                        }
-                        """
+                                            {
+                                              "photoIds": [1, 2, 3]
+                                            }
+                                            """
                             )
                     )
             )
@@ -711,12 +711,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -727,12 +727,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "존재하지 않는 일차입니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "존재하지 않는 일차입니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -748,10 +748,10 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "content": "오늘은 성산일출봉에 다녀왔습니다. 일출이 정말 아름다웠어요!"
-                        }
-                        """
+                                            {
+                                              "content": "오늘은 성산일출봉에 다녀왔습니다. 일출이 정말 아름다웠어요!"
+                                            }
+                                            """
                             )
                     )
             )
@@ -779,12 +779,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -795,12 +795,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "존재하지 않는 일기입니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "존재하지 않는 일기입니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -816,10 +816,10 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                        {
-                          "content": "수정: 오늘은 성산일출봉과 섭지코지를 다녀왔습니다. 날씨가 좋아서 더 즐거웠어요!"
-                        }
-                        """
+                                            {
+                                              "content": "수정: 오늘은 성산일출봉과 섭지코지를 다녀왔습니다. 날씨가 좋아서 더 즐거웠어요!"
+                                            }
+                                            """
                             )
                     )
             )
@@ -847,12 +847,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -863,12 +863,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "존재하지 않는 일기입니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "존재하지 않는 일기입니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -904,15 +904,15 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 200,
-                      "message": "공유 URL을 조회했습니다.",
-                      "data": {
-                        "travelId": 1,
-                        "shareUrl": "https://travel.vercel.app/share/abc-123-def-456"
-                      }
-                    }
-                    """
+                                            {
+                                              "status": 200,
+                                              "message": "공유 URL을 조회했습니다.",
+                                              "data": {
+                                                "travelId": 1,
+                                                "shareUrl": "https://travel.vercel.app/share/abc-123-def-456"
+                                              }
+                                            }
+                                            """
                             )
                     )
             ),
@@ -923,12 +923,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 403,
-                      "error": "FORBIDDEN",
-                      "message": "해당 여행에 대한 권한이 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "해당 여행에 대한 권한이 없습니다."
+                                            }
+                                            """
                             )
                     )
             ),
@@ -939,12 +939,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "여행을 찾을 수 없습니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "여행을 찾을 수 없습니다."
+                                            }
+                                            """
                             )
                     )
             )
@@ -979,36 +979,36 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "travelId": 1,
-                      "title": "제주도 여행",
-                      "trvRegion": "제주특별자치도",
-                      "startDate": "2025-01-15",
-                      "endDate": "2025-01-18",
-                      "days": [
-                        {
-                          "dayId": 115,
-                          "dayNumber": 1,
-                          "date": "2025-01-15",
-                          "dayRegion": "제주시",
-                          "photos": [
-                            {
-                              "photoId": 1,
-                              "url": "https://storage.googleapis.com/bucket/photo1.jpg",
-                              "takenAt": "2025-01-15T10:30:00Z",
-                              "latitude": 33.5145,
-                              "longitude": 126.5294
-                            }
-                          ],
-                          "diary": {
-                            "logId": 5,
-                            "content": "첫날은 성산일출봉에 다녀왔습니다.",
-                            "logCreated": "2025-01-15T20:00:00Z"
-                          }
-                        }
-                      ]
-                    }
-                    """
+                                            {
+                                              "travelId": 1,
+                                              "title": "제주도 여행",
+                                              "trvRegion": "제주특별자치도",
+                                              "startDate": "2025-01-15",
+                                              "endDate": "2025-01-18",
+                                              "days": [
+                                                {
+                                                  "dayId": 115,
+                                                  "dayNumber": 1,
+                                                  "date": "2025-01-15",
+                                                  "dayRegion": "제주시",
+                                                  "photos": [
+                                                    {
+                                                      "photoId": 1,
+                                                      "url": "https://storage.googleapis.com/bucket/photo1.jpg",
+                                                      "takenAt": "2025-01-15T10:30:00Z",
+                                                      "latitude": 33.5145,
+                                                      "longitude": 126.5294
+                                                    }
+                                                  ],
+                                                  "diary": {
+                                                    "logId": 5,
+                                                    "content": "첫날은 성산일출봉에 다녀왔습니다.",
+                                                    "logCreated": "2025-01-15T20:00:00Z"
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                            """
                             )
                     )
             ),
@@ -1019,12 +1019,12 @@ public class TravelController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "유효하지 않은 공유 URL입니다."
-                    }
-                    """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "유효하지 않은 공유 URL입니다."
+                                            }
+                                            """
                             )
                     )
             )
