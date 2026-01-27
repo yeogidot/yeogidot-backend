@@ -39,8 +39,8 @@ public class TravelDay extends BaseTimeEntity {
     @Builder.Default
     private Set<TravelLog> travelLogs = new LinkedHashSet<>();
 
-    // 일차에 속한 사진 (orphanRemoval=false: TravelDay 삭제 시 사진은 유지, travelDay만 null로)
-    @OneToMany(mappedBy = "travelDay", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    // 일차에 속한 사진 (TravelDay 삭제 시 사진도 함께 삭제)
+    @OneToMany(mappedBy = "travelDay", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Photo> photos = new ArrayList<>();
 
