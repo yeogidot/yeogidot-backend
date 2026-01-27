@@ -251,21 +251,27 @@ public class TravelService {
             for (Photo photo : photos) {
                 // GCS에서 파일 삭제
                 gcsService.deleteFile(photo.getFilePath());
-                // DB에서 사진 삭제
-                photoRepository.delete(photo);
+            }
+            // DB에서 사진 삭제
+            if (!photos.isEmpty()) {
+                photoRepository.deleteAll(photos);
             }
         }
+        photoRepository.flush();
 
         // 2단계: 여행 로그 삭제
         for (TravelDay day : travelDays) {
             travelLogRepository.deleteByTravelDay(day);
         }
+        travelLogRepository.flush();
 
         // 3단계: TravelDay 삭제
         travelDayRepository.deleteAll(travelDays);
+        travelDayRepository.flush();
 
         // 4단계: Travel 삭제
         travelRepository.delete(travel);
+        travelRepository.flush();
     }
 
     // === 여행 일차 상세 조회 ===
@@ -297,13 +303,34 @@ public class TravelService {
             throw new SecurityException("삭제 권한이 없습니다.");
         }
         
-        // TravelDay 삭제 전에 속한 사진들의 travelDay를 null로 설정
-        // (사진은 삭제하지 않고 여행과의 연결만 해제)
-        for (Photo photo : day.getPhotos()) {
-            photo.setTravelDay(null);
+        // 사진들을 명시적으로 조회 (Lazy Loading 해결)
+        List<Photo> photos = photoRepository.findByTravelDay(day);
+        
+        log.info("🗑️ TravelDay 삭제 시작 - Day ID: {}, 사진 개수: {}", dayId, photos.size());
+        
+        // GCS에서 사진 파일 삭제
+        for (Photo photo : photos) {
+            gcsService.deleteFile(photo.getFilePath());
+            log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
         }
         
+        // DB에서 사진 명시적 삭제
+        if (!photos.isEmpty()) {
+            photoRepository.deleteAll(photos);
+            photoRepository.flush(); // 즉시 DELETE 실행
+        }
+        log.info("🗑️ DB에서 사진 삭제 완료: {} 건", photos.size());
+        
+        // 여행 로그 삭제
+        travelLogRepository.deleteByTravelDay(day);
+        travelLogRepository.flush(); // 즉시 DELETE 실행
+        log.info("🗑️ 여행 로그 삭제 완료");
+        
+        // TravelDay 삭제
         travelDayRepository.delete(day);
+        travelDayRepository.flush(); // 즉시 DELETE 실행
+        
+        log.info("✅ TravelDay 삭제 완료 - Day ID: {}", dayId);
         
         // 일차 삭제 후 여행의 startDate/endDate 갱신
         Travel travel = day.getTravel();
