@@ -2,6 +2,7 @@ package com.yeogidot.yeogidot.controller;
 
 import com.yeogidot.yeogidot.dto.MovePhotoRequest;
 import com.yeogidot.yeogidot.dto.PhotoDto;
+import com.yeogidot.yeogidot.dto.PhotoUpdateRequest;
 import com.yeogidot.yeogidot.dto.TravelDto;
 import com.yeogidot.yeogidot.entity.Photo;
 import com.yeogidot.yeogidot.entity.User;
@@ -976,6 +977,144 @@ public class PhotoController {
             return ResponseEntity.ok(Map.of(
                     "status", 200,
                     "message", "사진이 이동되었습니다."
+            ));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "status", 404,
+                    "error", "NOT_FOUND",
+                    "message", e.getMessage()
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", 403,
+                    "error", "FORBIDDEN",
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * 사진 정보 수정 (PATCH) - 통합 API
+     */
+    @Operation(
+            summary = "사진 정보 수정 (통합)",
+            description = "사진의 촬영 시간, 위치 정보, 여행 일차를 한 번에 수정합니다. null이 아닌 필드만 수정됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "사진 수정 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "status": 200,
+                                              "message": "사진이 수정되었습니다."
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "사진을 수정할 권한이 없습니다."
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "사진을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "사진이 존재하지 않습니다."
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    @PatchMapping("/photos/{photoId}")
+    public ResponseEntity<?> updatePhoto(
+            @Parameter(description = "수정할 사진의 ID", required = true, example = "1")
+            @PathVariable Long photoId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "수정할 필드 (null이 아닌 필드만 수정됨)",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "촬영 시간만 수정",
+                                            value = """
+                                                    {
+                                                      "takenAt": "2025-01-15T14:30:00"
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "여행 일차만 수정",
+                                            value = """
+                                                    {
+                                                      "dayId": 5
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "여러 필드 동시 수정",
+                                            value = """
+                                                    {
+                                                      "takenAt": "2025-01-15T14:30:00",
+                                                      "dayId": 5,
+                                                      "latitude": 37.5665,
+                                                      "longitude": 126.9780
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
+            @RequestBody PhotoUpdateRequest request
+    ) {
+        try {
+            User user = getCurrentUser();
+            photoService.updatePhoto(photoId, request, user);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", 200,
+                    "message", "사진이 수정되었습니다."
             ));
 
         } catch (IllegalArgumentException e) {

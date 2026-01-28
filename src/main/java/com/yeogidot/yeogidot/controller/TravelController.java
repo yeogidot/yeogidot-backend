@@ -1,6 +1,7 @@
 package com.yeogidot.yeogidot.controller;
 
 import com.yeogidot.yeogidot.dto.TravelDto;
+import com.yeogidot.yeogidot.dto.TravelUpdateRequest;
 import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.service.TravelService;
@@ -1035,5 +1036,141 @@ public class TravelController {
             @PathVariable String shareToken
     ) {
         return ResponseEntity.ok(travelService.getTravelByShareToken(shareToken));
+    }
+
+    /**
+     * 여행 정보 수정 (PATCH) - 통합 API
+     */
+    @Operation(
+            summary = "여행 정보 수정 (통합)",
+            description = "여행의 제목, 대표 사진을 한 번에 수정합니다. null이 아닌 필드만 수정됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "여행 수정 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "status": 200,
+                                              "message": "여행이 수정되었습니다."
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "status": 401,
+                                              "error": "UNAUTHORIZED",
+                                              "message": "인증이 필요합니다."
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "status": 403,
+                                              "error": "FORBIDDEN",
+                                              "message": "여행을 수정할 권한이 없습니다."
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "여행을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "status": 404,
+                                              "error": "NOT_FOUND",
+                                              "message": "여행이 존재하지 않습니다."
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    @PatchMapping("/{travelId}")
+    public ResponseEntity<?> updateTravel(
+            @Parameter(description = "수정할 여행의 ID", required = true, example = "1")
+            @PathVariable Long travelId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "수정할 필드 (null이 아닌 필드만 수정됨)",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "제목만 수정",
+                                            value = """
+                                                    {
+                                                      "title": "수정된 여행 제목"
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "대표 사진만 수정",
+                                            value = """
+                                                    {
+                                                      "representativePhotoId": 123
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "여러 필드 동시 수정",
+                                            value = """
+                                                    {
+                                                      "title": "수정된 제주도 여행",
+                                                      "representativePhotoId": 456
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
+            @RequestBody TravelUpdateRequest request
+    ) {
+        try {
+            User user = getCurrentUser();
+            travelService.updateTravel(travelId, request, user);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", 200,
+                    "message", "여행이 수정되었습니다."
+            ));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "status", 404,
+                    "error", "NOT_FOUND",
+                    "message", e.getMessage()
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", 403,
+                    "error", "FORBIDDEN",
+                    "message", e.getMessage()
+            ));
+        }
     }
 }
