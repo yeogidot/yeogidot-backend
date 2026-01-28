@@ -36,11 +36,13 @@ public class TravelDay extends BaseTimeEntity {
 
     // 일차에 속한 로그
     @OneToMany(mappedBy = "travelDay", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdDate ASC")
     @Builder.Default
     private Set<TravelLog> travelLogs = new LinkedHashSet<>();
 
     // 일차에 속한 사진 (TravelDay 삭제 시 사진도 함께 삭제)
     @OneToMany(mappedBy = "travelDay", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("takenAt ASC")
     @Builder.Default
     private List<Photo> photos = new ArrayList<>();
 
