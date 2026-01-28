@@ -2,44 +2,55 @@ name: Deploy to GCP
 
 on:
   push:
-    branches: [ main, develop, feature/cors-fix , feature/improve-swagger-docs]  # 자동 배포
+    branches: [ main, develop, feature/cors-fix , feature/improve-swagger-docs ]  # 자동 배포
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-    
-    - name: Set up JDK 21
-      uses: actions/setup-java@v3
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-    
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    
-    - name: Build with Gradle
-      run: ./gradlew clean build -x test
-    
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H 34.50.29.65 >> ~/.ssh/known_hosts
-    
-    - name: Deploy to GCP
-      run: |
-        scp build/libs/yeogidot-0.0.1-SNAPSHOT.jar godwoo09@34.50.29.65:~/
-        ssh godwoo09@34.50.29.65 << 'EOF'
-          pkill -f yeogidot.jar || true
-          mv ~/yeogidot-0.0.1-SNAPSHOT.jar ~/app/yeogidot.jar
-          cd ~/app
-          nohup java -jar \
-            -Dspring.profiles.active=prod \
-            -Dspring.config.additional-location=file:/home/godwoo09/app/ \
-            yeogidot.jar > app.log 2>&1 &
-        EOF
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew clean build -x test
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 34.50.29.65 >> ~/.ssh/known_hosts
+
+      - name: Debug SSH Key
+        run: |
+          if [ ! -s ~/.ssh/id_rsa ]; then
+            echo "❌ SSH KEY FILE IS EMPTY"
+            ls -l ~/.ssh/id_rsa
+            exit 1
+          else
+            echo "✅ SSH KEY FILE EXISTS"
+          fi
+
+      - name: Deploy to GCP
+        run: |
+          scp build/libs/yeogidot-0.0.1-SNAPSHOT.jar godwoo09@34.50.29.65:~/
+          ssh godwoo09@34.50.29.65 << 'EOF'
+            pkill -f yeogidot.jar || true
+            mv ~/yeogidot-0.0.1-SNAPSHOT.jar ~/app/yeogidot.jar
+            cd ~/app
+            nohup java -jar \
+              -Dspring.profiles.active=prod \
+              -Dspring.config.additional-location=file:/home/godwoo09/app/ \
+              yeogidot.jar > app.log 2>&1 &
+          EOF
+        
