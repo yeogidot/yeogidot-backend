@@ -244,34 +244,19 @@ public class TravelService {
             throw new IllegalArgumentException("삭제 권한이 없습니다.");
         }
 
-        // 1단계: 여행에 속한 모든 사진 삭제 (GCS + DB)
+        // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)
         List<TravelDay> travelDays = travelDayRepository.findByTravelId(travelId);
         for (TravelDay day : travelDays) {
             List<Photo> photos = photoRepository.findByTravelDay(day);
             for (Photo photo : photos) {
-                // GCS에서 파일 삭제
                 gcsService.deleteFile(photo.getFilePath());
-            }
-            // DB에서 사진 삭제
-            if (!photos.isEmpty()) {
-                photoRepository.deleteAll(photos);
+                log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
             }
         }
-        photoRepository.flush();
 
-        // 2단계: 여행 로그 삭제
-        for (TravelDay day : travelDays) {
-            travelLogRepository.deleteByTravelDay(day);
-        }
-        travelLogRepository.flush();
-
-        // 3단계: TravelDay 삭제
-        travelDayRepository.deleteAll(travelDays);
-        travelDayRepository.flush();
-
-        // 4단계: Travel 삭제
+        // DB는 Cascade로 자동 삭제 (Travel -> TravelDay -> Photo, TravelLog, Cment 모두 자동)
         travelRepository.delete(travel);
-        travelRepository.flush();
+        log.info("✅ 여행 삭제 완료 - Travel ID: {}", travelId);
     }
 
     // === 여행 일차 상세 조회 ===
@@ -308,32 +293,21 @@ public class TravelService {
         
         log.info("🗑️ TravelDay 삭제 시작 - Day ID: {}, 사진 개수: {}", dayId, photos.size());
         
-        // GCS에서 사진 파일 삭제
+        // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)
         for (Photo photo : photos) {
             gcsService.deleteFile(photo.getFilePath());
             log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
         }
         
-        // DB에서 사진 명시적 삭제
-        if (!photos.isEmpty()) {
-            photoRepository.deleteAll(photos);
-            photoRepository.flush(); // 즉시 DELETE 실행
-        }
-        log.info("🗑️ DB에서 사진 삭제 완료: {} 건", photos.size());
+        // 일차 삭제 전에 Travel 참조 저장 (Cascade 후 접근 불가)
+        Travel travel = day.getTravel();
         
-        // 여행 로그 삭제
-        travelLogRepository.deleteByTravelDay(day);
-        travelLogRepository.flush(); // 즉시 DELETE 실행
-        log.info("🗑️ 여행 로그 삭제 완료");
-        
-        // TravelDay 삭제
+        // DB는 Cascade로 자동 삭제 (TravelDay -> Photo, TravelLog, Cment 모두 자동)
         travelDayRepository.delete(day);
-        travelDayRepository.flush(); // 즉시 DELETE 실행
         
         log.info("✅ TravelDay 삭제 완료 - Day ID: {}", dayId);
         
         // 일차 삭제 후 여행의 startDate/endDate 갱신
-        Travel travel = day.getTravel();
         updateTravelDates(travel);
     }
 
@@ -544,28 +518,6 @@ public class TravelService {
                 .build();
     }
 
-    // === 대표 사진 수정  ===
-    @Transactional
-    public void updateRepresentativePhoto(Long travelId, Long photoId, User user) {
-        // 여행 조회
-        Travel travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new IllegalArgumentException("여행이 존재하지 않습니다."));
-
-        // 권한 검증
-        if (!travel.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("권한이 없습니다.");
-        }
-
-        // 사진 존재 여부 확인 (선택적)
-        if (photoId != null) {
-            photoRepository.findById(photoId)
-                    .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
-        }
-
-        // 대표 사진 업데이트
-        travel.updateRepresentativePhoto(photoId);
-    }
-
     // --- 헬퍼 메서드: TravelDay의 dayRegion 자동 설정 (개선: 추가된 사진만 고려) ---
     private void updateDayRegionFromPhotos(TravelDay day, List<Photo> photos) {
         log.info("🔍 updateDayRegion 시작 - Day {}, 추가된 사진 개수: {}", day.getDayNumber(), photos.size());
@@ -688,5 +640,31 @@ public class TravelService {
                 .photos(photoDetails)
                 .diary(diaryDetail)
                 .build();
+    }
+    
+    // === 여행 정보 통합 수정 (PATCH) ===
+    @Transactional
+    public void updateTravel(Long travelId, com.yeogidot.yeogidot.dto.TravelUpdateRequest request, User user) {
+        Travel travel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new IllegalArgumentException("여행이 존재하지 않습니다."));
+        
+        // 권한 검증
+        if (!travel.getUser().getId().equals(user.getId())) {
+            throw new SecurityException("여행을 수정할 권한이 없습니다.");
+        }
+        
+        // 제목 수정
+        if (request.getTitle() != null) {
+            travel.updateTitle(request.getTitle());
+        }
+        
+        // 대표 사진 수정
+        if (request.getRepresentativePhotoId() != null) {
+            // 사진 존재 여부 확인
+            photoRepository.findById(request.getRepresentativePhotoId())
+                    .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
+            
+            travel.updateRepresentativePhoto(request.getRepresentativePhotoId());
+        }
     }
 }
