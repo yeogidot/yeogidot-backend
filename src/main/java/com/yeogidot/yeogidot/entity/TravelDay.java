@@ -5,7 +5,8 @@ import lombok.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.Set;
+import java.util.LinkedHashSet;
 //여행 일차 엔티티
 
 @Entity
@@ -35,11 +36,13 @@ public class TravelDay extends BaseTimeEntity {
 
     // 일차에 속한 로그
     @OneToMany(mappedBy = "travelDay", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdDate ASC")
     @Builder.Default
-    private List<TravelLog> travelLogs = new ArrayList<>();
+    private Set<TravelLog> travelLogs = new LinkedHashSet<>();
 
-    // 일차에 속한 사진 (orphanRemoval=false: TravelDay 삭제 시 사진은 유지, travelDay만 null로)
-    @OneToMany(mappedBy = "travelDay", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    // 일차에 속한 사진 (TravelDay 삭제 시 사진도 함께 삭제)
+    @OneToMany(mappedBy = "travelDay", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("takenAt ASC")
     @Builder.Default
     private List<Photo> photos = new ArrayList<>();
 
@@ -50,5 +53,10 @@ public class TravelDay extends BaseTimeEntity {
     // dayNumber 업데이트 메서드
     public void updateDayNumber(Integer dayNumber) {
         this.dayNumber = dayNumber;
+    }
+
+    // dayRegion 업데이트 메서드
+    public void updateDayRegion(String dayRegion) {
+        this.dayRegion = dayRegion;
     }
 }
