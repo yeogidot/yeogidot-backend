@@ -53,6 +53,14 @@ public class TravelDto {
         private String content;
     }
 
+    // 여행 날짜 수동 추가 요청
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AddDayRequest {
+        private LocalDate date;
+    }
+
     // ===== Response 객체 =====
     // 여행 상세 조회 응답
     @Getter
@@ -62,6 +70,7 @@ public class TravelDto {
     public static class DetailResponse {
         private Long travelId;
         private String title;
+        private String trvRegion; // 추가
         private Long representativePhotoId;
         private String shareUrl;
         private LocalDate startDate;
@@ -106,6 +115,18 @@ public class TravelDto {
         private LocalDateTime takenAt;
         private BigDecimal latitude;
         private BigDecimal longitude;
+        private List<CommentDetail> comments; // 추가
+    }
+
+    // 댓글 상세 정보
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CommentDetail {
+        private Long commentId;
+        private String content;
+        private LocalDateTime createdAt;
     }
 
     // 일기 상세 정보
@@ -117,5 +138,15 @@ public class TravelDto {
         private Long logId;
         private String content;
         private LocalDateTime logCreated;
+    }
+
+    // 공유 URL 응답 객체
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ShareUrlResponse {
+        private Long travelId;
+        private String shareUrl;
     }
 }
