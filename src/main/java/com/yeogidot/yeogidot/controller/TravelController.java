@@ -1043,7 +1043,12 @@ public class TravelController {
      */
     @Operation(
             summary = "여행 정보 수정 (통합)",
-            description = "여행의 제목, 대표 사진을 한 번에 수정합니다. null이 아닌 필드만 수정됩니다."
+            description = "여행의 제목, 대표 사진, 사진 목록을 한 번에 수정합니다. null이 아닌 필드만 수정됩니다.\n\n" +
+                    "**photoIds 사용 시 주의사항:**\n" +
+                    "- photoIds를 전송하면 기존 모든 사진과 일차가 삭제되고 새로운 사진들로 완전히 교체됩니다.\n" +
+                    "- 빈 일차는 자동으로 삭제됩니다.\n" +
+                    "- 사진의 촬영 날짜를 기반으로 새로운 일차가 자동 생성됩니다.\n" +
+                    "- 여행 날짜와 지역이 자동으로 업데이트됩니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -1137,11 +1142,20 @@ public class TravelController {
                                                     """
                                     ),
                                     @ExampleObject(
+                                            name = "사진 전체 교체 (기존 사진/일차 모두 삭제)",
+                                            value = """
+                                                    {
+                                                      "photoIds": [4, 5, 6, 7, 8]
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
                                             name = "여러 필드 동시 수정",
                                             value = """
                                                     {
                                                       "title": "수정된 제주도 여행",
-                                                      "representativePhotoId": 456
+                                                      "photoIds": [4, 5, 6],
+                                                      "representativePhotoId": 4
                                                     }
                                                     """
                                     )
