@@ -399,16 +399,16 @@ public class PhotoController {
     }
 
     /**
-     * 사진 댓글 작성
+     * 사진 코멘트 작성
      */
     @Operation(
-            summary = "사진 댓글 작성",
-            description = "특정 사진에 댓글을 작성합니다"
+            summary = "사진 코멘트 작성",
+            description = "특정 사진에 코멘트을 작성합니다"
     )
     @ApiResponses({
             @ApiResponse(
                     responseCode = "201",
-                    description = "댓글 작성 성공"
+                    description = "코멘트 작성 성공"
             ),
             @ApiResponse(
                     responseCode = "401",
@@ -445,10 +445,10 @@ public class PhotoController {
     })
     @PostMapping("/photos/{photoId}/comments")
     public ResponseEntity<?> createComment(
-            @Parameter(description = "댓글을 달 사진의 ID", required = true, example = "1")
+            @Parameter(description = "코멘트를 달 사진의 ID", required = true, example = "1")
             @PathVariable Long photoId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "댓글 내용",
+                    description = "코멘트 내용",
                     required = true,
                     content = @Content(
                             mediaType = "application/json",
@@ -468,107 +468,61 @@ public class PhotoController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "cmentId", cmentId,
-                "message", "댓글이 작성되었습니다."
+                "message", "코멘트가 작성되었습니다."
         ));
     }
 
     /**
-     * 사진 댓글 수정
+     * 사진 코멘트 수정
+     */
+    /**
+     * 사진 코멘트 수정
      */
     @Operation(
-            summary = "사진 댓글 수정",
-            description = "기존 댓글의 내용을 수정합니다"
+            summary = "사진 코멘트 수정",
+            description = "사진 ID를 사용하여 해당 사진에 달린 코멘트를 수정합니다."
     )
     @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "댓글 수정 성공"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                                            {
-                                              "status": 401,
-                                              "error": "UNAUTHORIZED",
-                                              "message": "인증이 필요합니다."
-                                            }
-                                            """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "권한 없음 (다른 사용자의 댓글)",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                                            {
-                                              "status": 403,
-                                              "error": "FORBIDDEN",
-                                              "message": "댓글을 수정할 권한이 없습니다."
-                                            }
-                                            """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "댓글을 찾을 수 없음",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                                            {
-                                              "status": 404,
-                                              "error": "NOT_FOUND",
-                                              "message": "댓글을 찾을 수 없습니다."
-                                            }
-                                            """
-                            )
-                    )
-            )
+            @ApiResponse(responseCode = "200", description = "코멘트 수정 성공"),
+            @ApiResponse(responseCode = "401", description = "인증 실패"),
+            @ApiResponse(responseCode = "403", description = "권한 없음"),
+            @ApiResponse(responseCode = "404", description = "코멘트를 찾을 수 없음")
     })
-    @PutMapping("/comments/{cmentId}")
+    @PutMapping("/photos/{photoId}/comments") // URL 변경: photos/{id}/comments
     public ResponseEntity<Void> updateComment(
-            @Parameter(description = "수정할 댓글의 ID", required = true, example = "1")
-            @PathVariable Long cmentId,
+            @Parameter(description = "코멘트가 달린 사진의 ID", required = true, example = "1")
+            @PathVariable Long photoId, // cmentId 대신 photoId를 받음
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "수정할 댓글 내용",
+                    description = "수정할 코멘트 내용",
                     required = true,
                     content = @Content(
                             mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
+                            examples = @ExampleObject(value = """
                                             {
-                                              "content": "수정된 댓글 내용입니다."
+                                              "content": "수정된 코멘트 내용입니다."
                                             }
-                                            """
-                            )
+                                            """)
                     )
             )
             @RequestBody TravelDto.CommentRequest request
     ) {
         User user = getCurrentUser();
-        photoService.updateComment(cmentId, request, user);
+        // 서비스 메서드 이름도 명확하게 변경 (기존 updateComment -> updateCommentByPhotoId)
+        photoService.updateCommentByPhotoId(photoId, request, user);
         return ResponseEntity.ok().build();
     }
 
     /**
-     * 사진 댓글 삭제
+     * 사진 코멘트 삭제
      */
     @Operation(
-            summary = "사진 댓글 삭제",
-            description = "기존 댓글을 삭제합니다"
+            summary = "사진 코멘트 삭제",
+            description = "기존 코멘트를 삭제합니다"
     )
     @ApiResponses({
             @ApiResponse(
                     responseCode = "204",
-                    description = "댓글 삭제 성공 (응답 본문 없음)"
+                    description = "코멘트 삭제 성공 (응답 본문 없음)"
             ),
             @ApiResponse(
                     responseCode = "401",
@@ -588,7 +542,7 @@ public class PhotoController {
             ),
             @ApiResponse(
                     responseCode = "403",
-                    description = "권한 없음 (다른 사용자의 댓글)",
+                    description = "권한 없음 (다른 사용자의 코멘트)",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
@@ -596,7 +550,7 @@ public class PhotoController {
                                             {
                                               "status": 403,
                                               "error": "FORBIDDEN",
-                                              "message": "댓글을 삭제할 권한이 없습니다."
+                                              "message": "코멘트를 삭제할 권한이 없습니다."
                                             }
                                             """
                             )
@@ -604,7 +558,7 @@ public class PhotoController {
             ),
             @ApiResponse(
                     responseCode = "404",
-                    description = "댓글을 찾을 수 없음",
+                    description = "코멘트를 찾을 수 없음",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
@@ -612,7 +566,7 @@ public class PhotoController {
                                             {
                                               "status": 404,
                                               "error": "NOT_FOUND",
-                                              "message": "댓글을 찾을 수 없습니다."
+                                              "message": "코멘트를 찾을 수 없습니다."
                                             }
                                             """
                             )
@@ -621,11 +575,11 @@ public class PhotoController {
     })
     @DeleteMapping("/comments/{cmentId}")
     public ResponseEntity<Void> deleteComment(
-            @Parameter(description = "삭제할 댓글의 ID", required = true, example = "1")
+            @Parameter(description = "삭제할 코멘트의 ID", required = true, example = "1")
             @PathVariable Long cmentId
     ) {
         User user = getCurrentUser();
-        photoService.deleteComment(cmentId, user);
+        photoService.deleteComment(cmentId, user);  
         return ResponseEntity.noContent().build();
     }
 
@@ -634,7 +588,7 @@ public class PhotoController {
      */
     @Operation(
             summary = "사진 삭제",
-            description = "특정 사진을 삭제합니다. 해당 사진에 달린 모든 댓글도 함께 삭제됩니다. 본인이 업로드한 사진만 삭제 가능합니다."
+            description = "특정 사진을 삭제합니다. 해당 사진에 달린 모든 코멘트도 함께 삭제됩니다. 본인이 업로드한 사진만 삭제 가능합니다."
     )
     @ApiResponses({
             @ApiResponse(

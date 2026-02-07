@@ -108,7 +108,7 @@ public class PhotoService {
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사진입니다."));
 
-        // ✅ 권한 검증 제거 (누구나 댓글 작성 가능)
+        // 권한 검증 제거 (누구나 댓글 작성 가능)
         Cment cment = Cment.builder()
                 .photo(photo)
                 .writer(user)  // ⭐ 작성자 저장
@@ -123,11 +123,26 @@ public class PhotoService {
         Cment cment = cmentRepository.findById(cmentId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다."));
 
-        // ✅ 작성자 본인 확인
+        // 작성자 본인 확인
         if (!cment.getWriter().getId().equals(user.getId())) {
             throw new SecurityException("본인의 댓글만 수정할 수 있습니다.");
         }
 
+        cment.updateContent(request.getContent());
+    }
+
+    // 사진 ID로 댓글 수정
+    public void updateCommentByPhotoId(Long photoId, TravelDto.CommentRequest request, User user) {
+        // photoId로 댓글 찾기
+        Cment cment = cmentRepository.findByPhotoId(photoId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 사진에 댓글이 존재하지 않습니다."));
+
+        // 작성자 본인 확인
+        if (!cment.getWriter().getId().equals(user.getId())) {
+            throw new SecurityException("본인의 댓글만 수정할 수 있습니다.");
+        }
+
+        // 내용 수정
         cment.updateContent(request.getContent());
     }
 
@@ -136,7 +151,7 @@ public class PhotoService {
         Cment cment = cmentRepository.findById(cmentId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다."));
 
-        // ✅ 작성자 본인 OR 사진 주인
+        // 작성자 본인 OR 사진 주인
         boolean isWriter = cment.getWriter().getId().equals(user.getId());
         boolean isPhotoOwner = cment.getPhoto().getUser().getId().equals(user.getId());
 
