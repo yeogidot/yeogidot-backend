@@ -515,71 +515,19 @@ public class PhotoController {
     /**
      * 사진 코멘트 삭제
      */
-    @Operation(
-            summary = "사진 코멘트 삭제",
-            description = "기존 코멘트를 삭제합니다"
-    )
+    @Operation(summary = "사진 코멘트 삭제", description = "사진 ID를 통해 해당 사진의 코멘트를 삭제합니다.")
     @ApiResponses({
-            @ApiResponse(
-                    responseCode = "204",
-                    description = "코멘트 삭제 성공 (응답 본문 없음)"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "인증 실패 (JWT 토큰 없음 또는 만료)",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                                            {
-                                              "status": 401,
-                                              "error": "UNAUTHORIZED",
-                                              "message": "인증이 필요합니다."
-                                            }
-                                            """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "권한 없음 (다른 사용자의 코멘트)",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                                            {
-                                              "status": 403,
-                                              "error": "FORBIDDEN",
-                                              "message": "코멘트를 삭제할 권한이 없습니다."
-                                            }
-                                            """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "코멘트를 찾을 수 없음",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                                            {
-                                              "status": 404,
-                                              "error": "NOT_FOUND",
-                                              "message": "코멘트를 찾을 수 없습니다."
-                                            }
-                                            """
-                            )
-                    )
-            )
+            @ApiResponse(responseCode = "204", description = "코멘트 삭제 성공"),
+            @ApiResponse(responseCode = "403", description = "권한 없음 (다른 사용자의 코멘트)"),
+            @ApiResponse(responseCode = "404", description = "코멘트를 찾을 수 없음")
     })
-    @DeleteMapping("/comments/{cmentId}")
+    @DeleteMapping("/photos/{photoId}/comments") // 주소 변경
     public ResponseEntity<Void> deleteComment(
-            @Parameter(description = "삭제할 코멘트의 ID", required = true, example = "1")
-            @PathVariable Long cmentId
+            @Parameter(description = "코멘트를 삭제할 사진의 ID", required = true, example = "1")
+            @PathVariable Long photoId // 파라미터 변경
     ) {
         User user = getCurrentUser();
-        photoService.deleteComment(cmentId, user);  
+        photoService.deleteCommentByPhotoId(photoId, user); // 서비스 호출 변경!
         return ResponseEntity.noContent().build();
     }
 

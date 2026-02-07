@@ -118,19 +118,6 @@ public class PhotoService {
         return cmentRepository.save(cment).getId();
     }
 
-    // 댓글 수정 - 작성자만 가능
-    public void updateComment(Long cmentId, TravelDto.CommentRequest request, User user) {
-        Cment cment = cmentRepository.findById(cmentId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다."));
-
-        // 작성자 본인 확인
-        if (!cment.getWriter().getId().equals(user.getId())) {
-            throw new SecurityException("본인의 댓글만 수정할 수 있습니다.");
-        }
-
-        cment.updateContent(request.getContent());
-    }
-
     // 사진 ID로 댓글 수정
     public void updateCommentByPhotoId(Long photoId, TravelDto.CommentRequest request, User user) {
         // photoId로 댓글 찾기
@@ -146,12 +133,13 @@ public class PhotoService {
         cment.updateContent(request.getContent());
     }
 
-    // 댓글 삭제 - 작성자 또는 사진 주인 가능
-    public void deleteComment(Long cmentId, User user) {
-        Cment cment = cmentRepository.findById(cmentId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다."));
+    // 사진 ID로 댓글 삭제
+    public void deleteCommentByPhotoId(Long photoId, User user) {
+        // photoId로 댓글 찾기
+        Cment cment = cmentRepository.findByPhotoId(photoId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 사진에 댓글이 존재하지 않습니다."));
 
-        // 작성자 본인 OR 사진 주인
+        // 권한 확인
         boolean isWriter = cment.getWriter().getId().equals(user.getId());
         boolean isPhotoOwner = cment.getPhoto().getUser().getId().equals(user.getId());
 
@@ -159,8 +147,10 @@ public class PhotoService {
             throw new SecurityException("댓글을 삭제할 권한이 없습니다.");
         }
 
+        // 삭제
         cmentRepository.delete(cment);
     }
+
     /**
      * 사진 상세 정보 조회
      */
