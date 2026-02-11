@@ -614,6 +614,7 @@ public class TravelService {
                             .takenAt(photo.getTakenAt())
                             .latitude(photo.getLatitude())
                             .longitude(photo.getLongitude())
+                            .region(photo.getRegion())  // 지역 정보 추가
                             .comments(commentDetails) // 댓글 추가
                             .build();
                 })

@@ -37,6 +37,32 @@ public class GeoCodingService {
     }
 
     /**
+     * 위도/경도로 시/군/구 레벨의 지역명 조회
+     * @param latitude 위도
+     * @param longitude 경도
+     * @return 시/군/구 레벨 지역명 (예: "부산광역시 부산진구", "서울특별시 강남구")
+     */
+    public String getDistrictFromCoordinates(BigDecimal latitude, BigDecimal longitude) {
+        RegionInfo regionInfo = getDetailedRegion(latitude, longitude);
+        if (regionInfo != null) {
+            String region1 = regionInfo.getRegion1depth();  // 예: "부산광역시"
+            String region2 = regionInfo.getRegion2depth();  // 예: "부산진구"
+            
+            if (region1 != null && region2 != null) {
+                // "부산광역시 부산진구" 형태로 반환
+                return region1 + " " + region2;
+            } else if (region2 != null) {
+                // region2만 있는 경우
+                return region2;
+            } else if (region1 != null) {
+                // region1만 있는 경우
+                return region1;
+            }
+        }
+        return null;
+    }
+
+    /**
      * 위도/경도로 상세 지역 정보 조회
      * @param latitude 위도
      * @param longitude 경도

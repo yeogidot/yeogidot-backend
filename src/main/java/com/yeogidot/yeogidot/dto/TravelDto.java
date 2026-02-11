@@ -115,6 +115,7 @@ public class TravelDto {
         private LocalDateTime takenAt;
         private BigDecimal latitude;
         private BigDecimal longitude;
+        private String region;  // 지역 정보 (예: "부산광역시 부산진구")
         private List<CommentDetail> comments; // 추가
     }
 
