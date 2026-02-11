@@ -27,15 +27,15 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H 34.47.109.94 >> ~/.ssh/known_hosts
 
       - name: Debug SSH Key
         run: |
-          if [ ! -s ~/.ssh/id_rsa ]; then
+          if [ ! -s ~/.ssh/id_ed25519 ]; then
             echo "❌ SSH KEY FILE IS EMPTY"
-            ls -l ~/.ssh/id_rsa
+            ls -l ~/.ssh/id_ed25519
             exit 1
           else
             echo "✅ SSH KEY FILE EXISTS"
@@ -43,13 +43,10 @@ jobs:
 
       - name: Deploy to GCP
         run: |
-          scp build/libs/yeogidot-0.0.1-SNAPSHOT.jar wjdckd842080@34.47.109.94:~/
-          ssh wjdckd842080@34.47.109.94 << 'EOF'
+          scp -i ~/.ssh/id_ed25519 build/libs/yeogidot-0.0.1-SNAPSHOT.jar wjdckd842080@34.47.109.94:~/
+          ssh -i ~/.ssh/id_ed25519 wjdckd842080@34.47.109.94 << 'EOF'
             pkill -f yeogidot.jar || true
             mv ~/yeogidot-0.0.1-SNAPSHOT.jar ~/app/yeogidot.jar
             cd ~/app
-            nohup java -jar \
-              -Dspring.profiles.active=prod \
-              yeogidot.jar > app.log 2>&1 &
+            nohup java -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &
           EOF
-        
