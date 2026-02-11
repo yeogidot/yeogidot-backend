@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -78,22 +79,41 @@ public class PhotoService {
                 region = geoCodingService.getDistrictFromCoordinates(lat, lng);
             }
 
-            // 4. Photo 엔티티 생성 (user 설정, travelDay는 null로 시작)
+            // 4. 촬영 시간 파싱 (타임존 정보 처리)
+            LocalDateTime takenAt = parseTakenAt(meta.getTakenAt());
+
+            // 5. Photo 엔티티 생성 (user 설정, travelDay는 null로 시작)
             Photo photo = Photo.builder()
                     .user(user)  // 사진 업로드한 사용자 설정
                     .filePath(gcsUrl)
                     .originalName(meta.getOriginalName())
-                    .takenAt(LocalDateTime.parse(meta.getTakenAt()))
+                    .takenAt(takenAt)
                     .latitude(lat)
                     .longitude(lng)
                     .region(region)  // 지역 정보 저장
                     .build();
 
-            // 5. DB에 저장
+            // 6. DB에 저장
             savedPhotos.add(photoRepository.save(photo));
         }
 
         return savedPhotos;
+    }
+    
+    /**
+     * 타임존 정보가 포함된 날짜 문자열을 LocalDateTime으로 변환
+     */
+    private LocalDateTime parseTakenAt(String takenAtStr) {
+        try {
+            // 타임존 정보가 있는 경우 (예: 2024-08-02T22:38:06+09:00)
+            if (takenAtStr.contains("+") || takenAtStr.endsWith("Z")) {
+                return ZonedDateTime.parse(takenAtStr).toLocalDateTime();
+            }
+            // 타임존 정보가 없는 경우 (예: 2025-11-12T10:00:00)
+            return LocalDateTime.parse(takenAtStr);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("잘못된 날짜 형식입니다: " + takenAtStr, e);
+        }
     }
 
     /**

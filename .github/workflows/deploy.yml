@@ -48,14 +48,35 @@ jobs:
             ls -l ~/.ssh/id_rsa
           fi
 
+      # ---------------- GCS 인증 키 생성 ----------------
+      - name: Create GCS Key File
+        run: |
+          echo '${{ secrets.GCP_GCS_KEY }}' > gcs-key.json
+          chmod 600 gcs-key.json
+
       # ---------------- 배포 ----------------
       - name: Deploy to GCP
         run: |
+          # JAR 파일 복사
           scp -i ~/.ssh/id_rsa build/libs/yeogidot-0.0.1-SNAPSHOT.jar wjdckd842080@34.47.109.94:~/
+          
+          # GCS 키 파일 복사
+          scp -i ~/.ssh/id_rsa gcs-key.json wjdckd842080@34.47.109.94:~/app/
 
           ssh -i ~/.ssh/id_rsa wjdckd842080@34.47.109.94 << 'EOF'
+            # 기존 프로세스 종료
             pkill -f yeogidot.jar || true
+            
+            # 새 JAR 파일로 교체
             mv ~/yeogidot-0.0.1-SNAPSHOT.jar ~/app/yeogidot.jar
+            
+            # app 디렉토리로 이동 후 실행
             cd ~/app
+            
+            # 애플리케이션 실행
             nohup java -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &
+            
+            # 프로세스 확인
+            sleep 3
+            ps aux | grep yeogidot.jar | grep -v grep
           EOF
