@@ -74,4 +74,9 @@ public class Travel extends BaseTimeEntity {
     public void updateShareUrl(String shareUrl) {
         this.shareUrl = shareUrl;
     }
+    
+    // 여행 지역 업데이트 메서드
+    public void updateTrvRegion(String trvRegion) {
+        this.trvRegion = trvRegion;
+    }
 }
