@@ -2,12 +2,17 @@ name: Deploy to GCP
 
 on:
   push:
-    branches: [ main, develop, feature/cors-fix , feature/improve-swagger-docs, feature/add-photo-region ]  # 자동 배포
+    branches:
+      - main
+      - develop
+      - feature/cors-fix
+      - feature/improve-swagger-docs
+      - feature/add-photo-region
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -24,26 +29,35 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean build -x test
 
+      # ---------------- SSH 설정 ----------------
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_ed25519
+          printf "%s" "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H 34.47.109.94 >> ~/.ssh/known_hosts
 
-      - name: Debug SSH Key
+      # ---------------- 디버깅 (키 길이 확인용) ----------------
+      - name: Check Secret Length
+        run: |
+          echo "Secret length:"
+          printf "%s" "${{ secrets.GCP_SSH_KEY }}" | wc -c
+
+      - name: Debug SSH Key File
         run: |
           if [ ! -s ~/.ssh/id_ed25519 ]; then
             echo "❌ SSH KEY FILE IS EMPTY"
-            ls -l ~/.ssh/id_ed25519
             exit 1
           else
             echo "✅ SSH KEY FILE EXISTS"
+            ls -l ~/.ssh/id_ed25519
           fi
 
+      # ---------------- 배포 ----------------
       - name: Deploy to GCP
         run: |
           scp -i ~/.ssh/id_ed25519 build/libs/yeogidot-0.0.1-SNAPSHOT.jar wjdckd842080@34.47.109.94:~/
+
           ssh -i ~/.ssh/id_ed25519 wjdckd842080@34.47.109.94 << 'EOF'
             pkill -f yeogidot.jar || true
             mv ~/yeogidot-0.0.1-SNAPSHOT.jar ~/app/yeogidot.jar
