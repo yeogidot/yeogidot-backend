@@ -29,6 +29,7 @@ public class PhotoService {
     private final PhotoRepository photoRepository;
     private final CmentRepository cmentRepository;
     private final GcsService gcsService;
+    private final GeoCodingService geoCodingService;
     private final ObjectMapper objectMapper;
     private final TravelDayRepository travelDayRepository;
 
@@ -71,7 +72,13 @@ public class PhotoService {
                 ? BigDecimal.valueOf(meta.getLongitude()) 
                 : null;
 
-            // 3. Photo 엔티티 생성 (user 설정, travelDay는 null로 시작)
+            // 3. 지역 정보 조회 (위도/경도가 있는 경우)
+            String region = null;
+            if (lat != null && lng != null) {
+                region = geoCodingService.getDistrictFromCoordinates(lat, lng);
+            }
+
+            // 4. Photo 엔티티 생성 (user 설정, travelDay는 null로 시작)
             Photo photo = Photo.builder()
                     .user(user)  // 사진 업로드한 사용자 설정
                     .filePath(gcsUrl)
@@ -79,9 +86,10 @@ public class PhotoService {
                     .takenAt(LocalDateTime.parse(meta.getTakenAt()))
                     .latitude(lat)
                     .longitude(lng)
+                    .region(region)  // 지역 정보 저장
                     .build();
 
-            // 4. DB에 저장
+            // 5. DB에 저장
             savedPhotos.add(photoRepository.save(photo));
         }
 
@@ -297,6 +305,10 @@ public class PhotoService {
             BigDecimal lat = BigDecimal.valueOf(request.getLatitude());
             BigDecimal lng = BigDecimal.valueOf(request.getLongitude());
             photo.updateLocation(lat, lng);
+            
+            // 위치 변경 시 지역 정보도 업데이트
+            String newRegion = geoCodingService.getDistrictFromCoordinates(lat, lng);
+            photo.updateRegion(newRegion);
         }
     }
 }

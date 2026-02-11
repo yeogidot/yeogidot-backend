@@ -28,6 +28,7 @@ public class PhotoDto {
         private BigDecimal longitude;
         private LocalDateTime takenAt;
         private String url;
+        private String region;  // 지역 정보 (예: "부산광역시 부산진구")
         private UserInfo user;
         private LocalDateTime createdDate;
         private LocalDateTime modifiedDate;
