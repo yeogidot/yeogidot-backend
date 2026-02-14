@@ -1164,27 +1164,11 @@ public class TravelController {
             )
             @RequestBody TravelUpdateRequest request
     ) {
-        try {
-            User user = getCurrentUser();
-            travelService.updateTravel(travelId, request, user);
-
-            return ResponseEntity.ok(Map.of(
-                    "status", 200,
-                    "message", "여행이 수정되었습니다."
-            ));
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                    "status", 404,
-                    "error", "NOT_FOUND",
-                    "message", e.getMessage()
-            ));
-        } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                    "status", 403,
-                    "error", "FORBIDDEN",
-                    "message", e.getMessage()
-            ));
-        }
+        User user = getCurrentUser();
+        travelService.updateTravel(travelId, request, user);
+        return ResponseEntity.ok(Map.of(
+                "status", 200,
+                "message", "여행이 수정되었습니다."
+        ));
     }
 }

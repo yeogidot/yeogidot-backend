@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeogidot.yeogidot.dto.PhotoDto;
@@ -49,7 +50,18 @@ public class PhotoService {
      * 여러 사진 업로드 (여행에 연결하지 않고 독립적으로 저장)
      */
     public List<Photo> uploadPhotos(List<MultipartFile> files, String metadataJson, User user) throws IOException {
-        List<PhotoMetaDto> metaList = objectMapper.readValue(metadataJson, new TypeReference<>() {});
+        // JSON 파싱 시도 - 형식 오류는 명확한 예외로 변환
+        List<PhotoMetaDto> metaList;
+        try {
+            metaList = objectMapper.readValue(metadataJson, new TypeReference<>() {});
+        } catch (JsonProcessingException e) {
+            // JSON 파싱 실패 → 400 Bad Request
+            throw new IllegalArgumentException(
+                "메타데이터 형식이 올바르지 않습니다. JSON 배열 형식이어야 합니다. " +
+                "예시: [{\"originalName\":\"photo1.jpg\",\"takenAt\":\"2025-11-12T10:00:00\",\"latitude\":35.1584,\"longitude\":129.1603}]",
+                e
+            );
+        }
 
         if (files.size() != metaList.size()) {
             throw new IllegalArgumentException("파일 개수와 메타데이터 개수가 일치하지 않습니다.");

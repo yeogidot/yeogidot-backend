@@ -1,5 +1,7 @@
 package com.yeogidot.yeogidot.config;
 
+import com.yeogidot.yeogidot.exception.JwtAccessDeniedHandler;
+import com.yeogidot.yeogidot.exception.JwtAuthenticationEntryPoint;
 import com.yeogidot.yeogidot.security.JwtAuthenticationFilter;
 import com.yeogidot.yeogidot.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,8 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;  // 추가
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;            // 추가
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -38,6 +42,13 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
+                
+                // 예외 처리 설정 추가
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)  // 401 처리
+                        .accessDeniedHandler(jwtAccessDeniedHandler)             // 403 처리
+                )
+                
                 .authorizeHttpRequests(auth -> auth
                         // OPTIONS 요청 (CORS preflight) 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
