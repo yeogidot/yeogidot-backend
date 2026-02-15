@@ -214,7 +214,7 @@ public class PhotoService {
     @Transactional(readOnly = true)
     public Photo getPhotoById(Long id) {
         return photoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("사진을 찾을 수 없습니다. ID: " + id));
+                .orElseThrow(() -> new IllegalStateException("사진을 찾을 수 없습니다. ID: " + id));
     }
 
     /// 사진 삭제 기능
