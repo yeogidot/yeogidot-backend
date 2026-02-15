@@ -1,6 +1,7 @@
 package com.yeogidot.yeogidot.service;
 
 // DTO (요청 데이터)
+
 import com.yeogidot.yeogidot.dto.LoginRequest;
 import com.yeogidot.yeogidot.dto.SignupRequest;
 
@@ -26,6 +27,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder; // 비밀번호 암호화 도구
     private final JwtTokenProvider jwtTokenProvider; // JWT 토큰 생성 도구
+
     @Transactional
     public void signup(SignupRequest request) {
         // 1. 약관 동의 체크
@@ -51,7 +53,8 @@ public class AuthService {
 
         userRepository.save(user);
     }
-    // ★ 로그인 기능 추가
+
+    //  로그인 기능 추가
     @Transactional(readOnly = true)
     public String login(LoginRequest request) {
         // 1. 이메일로 사람 찾기

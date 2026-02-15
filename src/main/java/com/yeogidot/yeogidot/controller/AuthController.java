@@ -49,69 +49,35 @@ public class AuthController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 400,
-                      "error": "BAD_REQUEST",
-                      "message": "비밀번호가 일치하지 않습니다."
-                    }
-                    """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "409",
-                    description = "이미 존재하는 이메일",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                    {
-                      "status": 409,
-                      "error": "CONFLICT",
-                      "message": "이미 가입된 이메일입니다."
-                    }
-                    """
+                                            {
+                                              "status": 400,
+                                              "error": "BAD_REQUEST",
+                                              "message": "비밀번호가 일치하지 않습니다."
+                                            }
+                                            """
                             )
                     )
             ),
             @ApiResponse(
                     responseCode = "500",
-                    description = "서버 오류",
+                    description = "서버 오류 (이미 가입된 이메일 등)",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 500,
-                      "error": "INTERNAL_SERVER_ERROR",
-                      "message": "회원가입 처리 중 오류가 발생했습니다."
-                    }
-                    """
+                                            {
+                                              "status": 500,
+                                              "error": "RUNTIME_ERROR",
+                                              "message": "서버 처리 중 오류가 발생했습니다.",
+                                              "detail": "이미 가입된 이메일입니다."
+                                            }
+                                            """
                             )
                     )
             )
     })
     @PostMapping("/signup")
-    public ResponseEntity<String> signup(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "회원가입 정보",
-                    required = true,
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                        {
-                          "email": "user@example.com",
-                          "password": "password123",
-                          "password_check": "password123",
-                          "privacy_policy_agreed": true
-                        }
-                        """
-                            )
-                    )
-            )
-            @RequestBody SignupRequest request
-    ) {
+    public ResponseEntity<String> signup(@RequestBody SignupRequest request) {
         authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body("회원가입 성공");
     }
@@ -131,92 +97,38 @@ public class AuthController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "token_type": "Bearer",
-                      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                    }
-                    """
+                                            {
+                                              "token_type": "Bearer",
+                                              "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                            }
+                                            """
                             )
                     )
             ),
             @ApiResponse(
                     responseCode = "400",
-                    description = "잘못된 요청 (이메일 또는 비밀번호 누락 등)",
+                    description = "잘못된 요청 (가입되지 않은 이메일 또는 비밀번호 불일치)",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "status": 400,
-                      "error": "BAD_REQUEST",
-                      "message": "이메일과 비밀번호를 입력해주세요."
-                    }
-                    """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "인증 실패 (이메일 또는 비밀번호 불일치)",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                    {
-                      "status": 401,
-                      "error": "UNAUTHORIZED",
-                      "message": "이메일 또는 비밀번호가 일치하지 않습니다."
-                    }
-                    """
-                            )
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "사용자를 찾을 수 없음",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                    {
-                      "status": 404,
-                      "error": "NOT_FOUND",
-                      "message": "가입되지 않은 이메일입니다."
-                    }
-                    """
+                                            {
+                                              "status": 400,
+                                              "error": "BAD_REQUEST",
+                                              "message": "가입되지 않은 이메일입니다."
+                                            }
+                                            """
                             )
                     )
             )
     })
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "로그인 정보",
-                    required = true,
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                        {
-                          "email": "user@example.com",
-                          "password": "password123"
-                        }
-                        """
-                            )
-                    )
-            )
-            @RequestBody LoginRequest request
-    ) {
-        // 1. 로그인 시키고 토큰 받아오기
+    public ResponseEntity<Map<String, String>> login(@RequestBody LoginRequest request) {
         String token = authService.login(request);
-
-        // 2. 토큰 포장해서 주기
-        Map<String, String> response = Map.of(
+        return ResponseEntity.ok(Map.of(
                 "token_type", "Bearer",
                 "access_token", token
-        );
-
-        return ResponseEntity.ok(response);
+        ));
     }
 
     /**
@@ -234,17 +146,16 @@ public class AuthController {
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
-                    {
-                      "message": "로그아웃되었습니다."
-                    }
-                    """
+                                            {
+                                              "message": "로그아웃되었습니다."
+                                            }
+                                            """
                             )
                     )
             )
     })
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout() {
-        // 클라이언트가 토큰을 버리면 그게 로그아웃
         return ResponseEntity.ok(Map.of("message", "로그아웃되었습니다."));
     }
 }

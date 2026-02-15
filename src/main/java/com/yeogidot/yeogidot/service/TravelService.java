@@ -467,7 +467,7 @@ public class TravelService {
 
         // 본인 여부 확인
         if (!travel.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("해당 여행을 공유할 권한이 없습니다.");
+            throw new SecurityException("해당 여행을 공유할 권한이 없습니다.");
         }
 
         // DB에 share_url이 없으면 새로 생성
@@ -483,13 +483,13 @@ public class TravelService {
         return travel.getShareUrl();
     }
 
-    // === 공유 토큰으로 여행 조회 (신규 추가) ===
+    // === 공유 토큰으로 여행 조회  ===
     public TravelDto.DetailResponse getTravelByShareToken(String shareToken) {
         // shareToken을 포함하는 전체 URL 조회
         String shareUrl = "https://travel.vercel.app/share/" + shareToken;
 
         Travel travel = travelRepository.findByShareUrl(shareUrl)
-                .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 공유 URL입니다."));
+                .orElseThrow(() -> new IllegalStateException("유효하지 않은 공유 URL입니다."));
 
         // TravelDays + Photos 조회
         travelRepository.findDaysWithPhotos(travel.getId());

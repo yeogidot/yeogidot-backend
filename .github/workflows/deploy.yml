@@ -6,7 +6,7 @@ on:
       - main
       - develop
       - feature/cors-fix
-      - feature/improve-swagger-docs
+      - feature/improve-error-response
       - feature/add-photo-region
 
 jobs:
@@ -66,16 +66,16 @@ jobs:
           ssh -i ~/.ssh/id_rsa wjdckd842080@34.47.109.94 << 'EOF'
             # 기존 프로세스 종료
             pkill -f yeogidot.jar || true
-            
+          
             # 새 JAR 파일로 교체
             mv ~/yeogidot-0.0.1-SNAPSHOT.jar ~/app/yeogidot.jar
-            
+          
             # app 디렉토리로 이동 후 실행
             cd ~/app
-            
+          
             # 애플리케이션 실행
             nohup java -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &
-            
+          
             # 프로세스 확인
             sleep 3
             ps aux | grep yeogidot.jar | grep -v grep
