@@ -83,7 +83,7 @@ public class SecurityConfig {
                 "http://localhost:*",         // localhost 모든 포트
                 "http://127.0.0.1",           // 포트 없는 127.0.0.1
                 "http://127.0.0.1:*",         // 127.0.0.1 모든 포트
-                "http://34.50.29.65:*",       // GCP 서버
+                "https://yeogidot.jihongeek.com",  // 운영 서버
                 "https://yeogidot-frontend.jihongeek.workers.dev"
         ));
 
