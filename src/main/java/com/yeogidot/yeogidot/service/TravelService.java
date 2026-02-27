@@ -5,6 +5,7 @@ import com.yeogidot.yeogidot.entity.*;
 import com.yeogidot.yeogidot.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,9 @@ public class TravelService {
     private final TravelLogRepository travelLogRepository;
     private final GcsService gcsService;
     private final GeoCodingService geoCodingService;
+
+    @Value("${app.frontend.base-url}")
+    private String frontendBaseUrl;
 
 
     // === 여행 목록 조회 ===
@@ -482,8 +486,7 @@ public class TravelService {
         if (travel.getShareUrl() == null || travel.getShareUrl().isEmpty()
                 || travel.getShareUrl().contains("travel.vercel.app")) {
             String uuid = UUID.randomUUID().toString();
-            String baseUrl = "https://yeogidot-frontend.jihongeek.workers.dev/share/";
-            String fullUrl = baseUrl + uuid;
+            String fullUrl = frontendBaseUrl + "/share/" + uuid;
 
             // Travel 엔티티에 shareUrl 업데이트
             travel.updateShareUrl(fullUrl);
@@ -495,7 +498,7 @@ public class TravelService {
     // === 공유 토큰으로 여행 조회  ===
     public TravelDto.DetailResponse getTravelByShareToken(String shareToken) {
         // shareToken을 포함하는 전체 URL 조회
-        String shareUrl = "https://yeogidot-frontend.jihongeek.workers.dev/share/" + shareToken;
+        String shareUrl = frontendBaseUrl + "/share/" + shareToken;
 
         Travel travel = travelRepository.findByShareUrl(shareUrl)
                 .orElseThrow(() -> new IllegalStateException("유효하지 않은 공유 URL입니다."));
@@ -670,8 +673,11 @@ public class TravelService {
 
         // photoIds가 제공된 경우: 증분 업데이트 (유지/삭제/추가)
         if (request.getPhotoIds() != null) {
-            // null 값 필터링
-            request.getPhotoIds().removeIf(id -> id == null);
+            // null 값 필터링 (불변 리스트 방어)
+            List<Long> filteredPhotoIds = request.getPhotoIds().stream()
+                    .filter(id -> id != null)
+                    .collect(Collectors.toList());
+            request.setPhotoIds(filteredPhotoIds);
             log.info("🔄 사진 증분 업데이트 시작 - Travel ID: {}, 요청 사진 개수: {}", travelId, request.getPhotoIds().size());
 
             // 1단계: 기존 사진들 수집
