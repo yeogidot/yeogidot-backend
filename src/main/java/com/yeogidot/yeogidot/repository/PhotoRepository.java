@@ -14,6 +14,7 @@ public interface PhotoRepository extends JpaRepository<Photo, Long> {
             "WHERE p.user.id = :userId " +
             "AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL")
     List<Photo> findAllByUserId(@Param("userId") Long userId);
-    List<Photo> findByTravelDay(TravelDay travelDay); // 추가
+    List<Photo> findByTravelDay(TravelDay travelDay);
+    List<Photo> findByUserId(Long userId);
 
 }

@@ -209,7 +209,8 @@ public class PhotoController {
     })
     @GetMapping("/photos")
     public ResponseEntity<List<Photo>> getAllPhotos() {
-        return ResponseEntity.ok(photoService.getAllPhotos());
+        User user = getCurrentUser();
+        return ResponseEntity.ok(photoService.getMyPhotos(user.getId()));
     }
 
     /**

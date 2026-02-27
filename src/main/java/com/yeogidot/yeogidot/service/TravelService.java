@@ -293,19 +293,27 @@ public class TravelService {
 
         log.info("🗑️ TravelDay 삭제 시작 - Day ID: {}, 사진 개수: {}", dayId, photos.size());
 
+        // 일차 삭제 전에 Travel 참조 저장
+        Travel travel = day.getTravel();
+
         // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)
         for (Photo photo : photos) {
             gcsService.deleteFile(photo.getFilePath());
             log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
         }
 
-        // 일차 삭제 전에 Travel 참조 저장 (Cascade 후 접근 불가)
-        Travel travel = day.getTravel();
+        // 사진 먼저 DB에서 삭제 (Cascade 충돌 방지)
+        photoRepository.deleteAll(photos);
+        photoRepository.flush();
 
-        // DB는 Cascade로 자동 삭제 (TravelDay -> Photo, TravelLog, Cment 모두 자동)
+        // TravelDay 삭제
         travelDayRepository.delete(day);
+        travelDayRepository.flush();
 
         log.info("✅ TravelDay 삭제 완료 - Day ID: {}", dayId);
+
+        // 영속성 컨텍스트에서 travel 컬렉션 갱신 (삭제된 day 제거)
+        travel.getTravelDays().remove(day);
 
         // 일차 삭제 후 여행의 startDate/endDate 갱신
         updateTravelDates(travel);
@@ -378,7 +386,7 @@ public class TravelService {
         return savedDay.getId();
     }
 
-    // === 여행 일차에 사진 추가 (개선: 불필요한 재조회 제거) ===
+    // === 여행 일차에 사진 추가 ===
     @Transactional
     public int addPhotosToDay(Long dayId, List<Long> photoIds, User user) {
         // TravelDay 조회
@@ -470,10 +478,11 @@ public class TravelService {
             throw new SecurityException("해당 여행을 공유할 권한이 없습니다.");
         }
 
-        // DB에 share_url이 없으면 새로 생성
-        if (travel.getShareUrl() == null || travel.getShareUrl().isEmpty()) {
+        // DB에 share_url이 없거나 구 도메인(travel.vercel.app)이면 새로 생성
+        if (travel.getShareUrl() == null || travel.getShareUrl().isEmpty()
+                || travel.getShareUrl().contains("travel.vercel.app")) {
             String uuid = UUID.randomUUID().toString();
-            String baseUrl = "https://travel.vercel.app/share/";
+            String baseUrl = "https://yeogidot-frontend.jihongeek.workers.dev/share/";
             String fullUrl = baseUrl + uuid;
 
             // Travel 엔티티에 shareUrl 업데이트
@@ -486,7 +495,7 @@ public class TravelService {
     // === 공유 토큰으로 여행 조회  ===
     public TravelDto.DetailResponse getTravelByShareToken(String shareToken) {
         // shareToken을 포함하는 전체 URL 조회
-        String shareUrl = "https://travel.vercel.app/share/" + shareToken;
+        String shareUrl = "https://yeogidot-frontend.jihongeek.workers.dev/share/" + shareToken;
 
         Travel travel = travelRepository.findByShareUrl(shareUrl)
                 .orElseThrow(() -> new IllegalStateException("유효하지 않은 공유 URL입니다."));
