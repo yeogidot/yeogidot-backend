@@ -5,6 +5,7 @@ import lombok.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.LinkedHashSet;
 //여행 일차 엔티티
@@ -58,5 +59,18 @@ public class TravelDay extends BaseTimeEntity {
     // dayRegion 업데이트 메서드
     public void updateDayRegion(String dayRegion) {
         this.dayRegion = dayRegion;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof TravelDay)) return false;
+        TravelDay that = (TravelDay) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }

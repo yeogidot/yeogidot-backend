@@ -670,6 +670,8 @@ public class TravelService {
 
         // photoIds가 제공된 경우: 증분 업데이트 (유지/삭제/추가)
         if (request.getPhotoIds() != null) {
+            // null 값 필터링
+            request.getPhotoIds().removeIf(id -> id == null);
             log.info("🔄 사진 증분 업데이트 시작 - Travel ID: {}, 요청 사진 개수: {}", travelId, request.getPhotoIds().size());
 
             // 1단계: 기존 사진들 수집
