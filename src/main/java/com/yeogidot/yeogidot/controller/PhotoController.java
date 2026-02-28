@@ -129,7 +129,7 @@ public class PhotoController {
                                               "status": 413,
                                               "error": "FILE_TOO_LARGE",
                                               "message": "업로드 파일 크기가 제한을 초과했습니다.",
-                                              "detail": "최대 파일 크기는 10MB입니다."
+                                              "detail": "최대 파일 크기는 50MB입니다."
                                             }
                                             """
                             )
@@ -291,7 +291,7 @@ public class PhotoController {
                     )
             )
     })
-    @GetMapping("/map-photos")
+    @GetMapping("/photos/map-markers")
     public ResponseEntity<List<PhotoDto>> getMapPhotos() {
         User user = getCurrentUser();
         return ResponseEntity.ok(photoService.getMyMapPhotos(user.getId()));
