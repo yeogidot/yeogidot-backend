@@ -209,6 +209,14 @@ public class PhotoService {
     }
 
     /**
+     * 본인 사진만 조회
+     */
+    @Transactional(readOnly = true)
+    public List<Photo> getMyPhotos(Long userId) {
+        return photoRepository.findByUserId(userId);
+    }
+
+    /**
      * 특정 사진 조회
      */
     @Transactional(readOnly = true)

@@ -247,7 +247,7 @@ public class GlobalExceptionHandler {
         response.put("status", 413);
         response.put("error", "FILE_TOO_LARGE");
         response.put("message", "업로드 파일 크기가 제한을 초과했습니다.");
-        response.put("detail", "최대 파일 크기는 10MB입니다.");
+        response.put("detail", "최대 파일 크기는 50MB입니다.");
         
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
     }

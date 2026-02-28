@@ -182,7 +182,7 @@ public class TravelController {
                                                    "title": "제주도 여행",
                                                    "trvRegion": "제주특별자치도",
                                                    "representativePhotoId": 3,
-                                                   "shareUrl": "https://travel.vercel.app/share/abc-123-def",
+                                                   "shareUrl": "https://yeogidot-frontend.jihongeek.workers.dev/share/abc-123-def",
                                                    "startDate": "2025-01-15",
                                                    "endDate": "2025-01-18",
                                                    "days": [
@@ -910,7 +910,7 @@ public class TravelController {
                                               "message": "공유 URL을 조회했습니다.",
                                               "data": {
                                                 "travelId": 1,
-                                                "shareUrl": "https://travel.vercel.app/share/abc-123-def-456"
+                                                "shareUrl": "https://yeogidot-frontend.jihongeek.workers.dev/share/abc-123-def-456"
                                               }
                                             }
                                             """

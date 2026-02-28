@@ -2,10 +2,12 @@ package com.yeogidot.yeogidot.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import java.util.List;
 
 /// Swagger 설정 클래스
 
@@ -22,7 +24,12 @@ public class SwaggerConfig {
                 .scheme("bearer")
                 .bearerFormat("JWT"));
 
+        Server server = new Server();
+        server.setUrl("https://yeogidot.jihongeek.com");
+        server.setDescription("운영 서버");
+
         return new OpenAPI()
+                .servers(List.of(server))
                 .addSecurityItem(securityRequirement)
                 .components(components);
     }
