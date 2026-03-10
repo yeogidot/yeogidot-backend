@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -69,57 +70,73 @@ public class PhotoService {
             throw new IllegalArgumentException("파일 개수와 메타데이터 개수가 일치하지 않습니다.");
         }
 
-        List<Photo> savedPhotos = new ArrayList<>();
-
         long totalStart = System.currentTimeMillis();
         log.info("===== 사진 업로드 시작: 총 {}장 =====", files.size());
 
+        // ✅ 비동기 병렬처리: GCS 업로드 + 카카오 API를 모든 사진 동시에 실행
+        List<CompletableFuture<Photo>> futures = new ArrayList<>();
+
         for (int i = 0; i < files.size(); i++) {
-            MultipartFile file = files.get(i);
-            PhotoMetaDto meta = metaList.get(i);
-            log.info("----- 사진 {}/{} 처리 시작 -----", i + 1, files.size());
+            final int index = i;
+            final MultipartFile file = files.get(i);
+            final PhotoMetaDto meta = metaList.get(i);
 
-            // 1. GCS에 파일 업로드
-            long gcsStart = System.currentTimeMillis();
-            String gcsUrl = gcsService.uploadFile(file);
-            log.info("[{}번] GCS 업로드 소요시간: {}ms", i + 1, System.currentTimeMillis() - gcsStart);
+            CompletableFuture<Photo> future = CompletableFuture.supplyAsync(() -> {
+                try {
+                    log.info("----- 사진 {}/{} 처리 시작 (병렬) -----", index + 1, files.size());
 
-            // 2. latitude/longitude가 없으면 null 처리
-            BigDecimal lat = meta.getLatitude() != null 
-                ? BigDecimal.valueOf(meta.getLatitude()) 
-                : null;
-            
-            BigDecimal lng = meta.getLongitude() != null 
-                ? BigDecimal.valueOf(meta.getLongitude()) 
-                : null;
+                    // 1. GCS 업로드 (여러 사진 동시 실행)
+                    long gcsStart = System.currentTimeMillis();
+                    String gcsUrl = gcsService.uploadFile(file);
+                    log.info("[{}번] GCS 업로드 소요시간: {}ms", index + 1, System.currentTimeMillis() - gcsStart);
 
-            // 3. 지역 정보 조회 (위도/경도가 있는 경우)
-            String region = null;
-            if (lat != null && lng != null) {
-                long kakaoStart = System.currentTimeMillis();
-                region = geoCodingService.getDistrictFromCoordinates(lat, lng);
-                log.info("[{}번] 카카오 역지오코딩 소요시간: {}ms", i + 1, System.currentTimeMillis() - kakaoStart);
-            }
+                    // 2. 좌표 처리
+                    BigDecimal lat = meta.getLatitude() != null
+                            ? BigDecimal.valueOf(meta.getLatitude()) : null;
+                    BigDecimal lng = meta.getLongitude() != null
+                            ? BigDecimal.valueOf(meta.getLongitude()) : null;
 
-            // 4. 촬영 시간 파싱 (타임존 정보 처리)
-            LocalDateTime takenAt = parseTakenAt(meta.getTakenAt());
+                    // 3. 카카오 역지오코딩 (캐싱 적용되어 있어 같은 지역이면 즉시 반환)
+                    String region = null;
+                    if (lat != null && lng != null) {
+                        long kakaoStart = System.currentTimeMillis();
+                        region = geoCodingService.getDistrictFromCoordinates(lat, lng);
+                        log.info("[{}번] 카카오 역지오코딩 소요시간: {}ms", index + 1, System.currentTimeMillis() - kakaoStart);
+                    }
 
-            // 5. Photo 엔티티 생성 (user 설정, travelDay는 null로 시작)
-            long dbStart = System.currentTimeMillis();
-            Photo photo = Photo.builder()
-                    .user(user)  // 사진 업로드한 사용자 설정
-                    .filePath(gcsUrl)
-                    .originalName(meta.getOriginalName())
-                    .takenAt(takenAt)
-                    .latitude(lat)
-                    .longitude(lng)
-                    .region(region)  // 지역 정보 저장
-                    .build();
+                    // 4. 촬영 시간 파싱
+                    LocalDateTime takenAt = parseTakenAt(meta.getTakenAt());
 
-            // 6. DB에 저장
-            savedPhotos.add(photoRepository.save(photo));
-            log.info("[{}번] DB 저장 소요시간: {}ms", i + 1, System.currentTimeMillis() - dbStart);
+                    // 5. Photo 엔티티 생성 (DB 저장은 아직 안 함)
+                    return Photo.builder()
+                            .user(user)
+                            .filePath(gcsUrl)
+                            .originalName(meta.getOriginalName())
+                            .takenAt(takenAt)
+                            .latitude(lat)
+                            .longitude(lng)
+                            .region(region)
+                            .build();
+
+                } catch (IOException e) {
+                    throw new RuntimeException(index + 1 + "번 사진 처리 실패", e);
+                }
+            });
+
+            futures.add(future);
         }
+
+        // ✅ 모든 병렬 작업 완료 대기 후 DB에 순차 저장
+        // (DB 저장은 @Transactional이 메인 스레드에서 동작하므로 여기서 처리)
+        List<Photo> savedPhotos = futures.stream()
+                .map(future -> {
+                    Photo photo = future.join(); // 각 작업 완료될 때까지 대기
+                    long dbStart = System.currentTimeMillis();
+                    Photo saved = photoRepository.save(photo);
+                    log.info("DB 저장 소요시간: {}ms", System.currentTimeMillis() - dbStart);
+                    return saved;
+                })
+                .collect(Collectors.toList());
 
         log.info("===== 사진 업로드 완료: 총 소요시간 {}ms =====", System.currentTimeMillis() - totalStart);
 
