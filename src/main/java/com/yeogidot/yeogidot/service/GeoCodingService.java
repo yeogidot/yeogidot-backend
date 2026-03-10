@@ -28,7 +28,8 @@ public class GeoCodingService {
 
     /**
      * 위도/경도로 지역명 조회 (시/도 단위)
-     * @param latitude 위도
+     *
+     * @param latitude  위도
      * @param longitude 경도
      * @return 지역명 (예: "부산광역시", "제주특별자치도")
      */
@@ -39,17 +40,21 @@ public class GeoCodingService {
 
     /**
      * 위도/경도로 시/군/구 레벨의 지역명 조회
-     * @param latitude 위도
+     *
+     * @param latitude  위도
      * @param longitude 경도
      * @return 시/군/구 레벨 지역명 (예: "부산광역시 부산진구", "서울특별시 강남구")
      */
-    @Cacheable(value = "geocoding", key = "#latitude.setScale(4, java.math.RoundingMode.HALF_UP).toString() + ',' + #longitude.setScale(4, java.math.RoundingMode.HALF_UP).toString()")
+    @Cacheable(
+            value = "geocoding",
+            key = "#latitude.setScale(4, T(java.math.RoundingMode).HALF_UP).toString() + ',' + #longitude.setScale(4, T(java.math.RoundingMode).HALF_UP).toString()"
+    )
     public String getDistrictFromCoordinates(BigDecimal latitude, BigDecimal longitude) {
         RegionInfo regionInfo = getDetailedRegion(latitude, longitude);
         if (regionInfo != null) {
             String region1 = regionInfo.getRegion1depth();  // 예: "부산광역시"
             String region2 = regionInfo.getRegion2depth();  // 예: "부산진구"
-            
+
             if (region1 != null && region2 != null) {
                 // "부산광역시 부산진구" 형태로 반환
                 return region1 + " " + region2;
@@ -66,7 +71,8 @@ public class GeoCodingService {
 
     /**
      * 위도/경도로 상세 지역 정보 조회
-     * @param latitude 위도
+     *
+     * @param latitude  위도
      * @param longitude 경도
      * @return RegionInfo (시/도, 구/군 포함)
      */
@@ -77,9 +83,9 @@ public class GeoCodingService {
 
         try {
             String url = String.format(
-                "https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=%s&y=%s",
-                longitude.toString(),
-                latitude.toString()
+                    "https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=%s&y=%s",
+                    longitude.toString(),
+                    latitude.toString()
             );
 
             HttpHeaders headers = new HttpHeaders();
@@ -87,22 +93,22 @@ public class GeoCodingService {
 
             HttpEntity<String> entity = new HttpEntity<>(headers);
             ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                entity,
-                Map.class
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    Map.class
             );
 
             Map<String, Object> body = response.getBody();
             if (body != null && body.containsKey("documents")) {
-                java.util.List<Map<String, Object>> documents = 
-                    (java.util.List<Map<String, Object>>) body.get("documents");
-                
+                java.util.List<Map<String, Object>> documents =
+                        (java.util.List<Map<String, Object>>) body.get("documents");
+
                 if (!documents.isEmpty()) {
                     Map<String, Object> firstDoc = documents.get(0);
                     String region1depth = (String) firstDoc.get("region_1depth_name");
                     String region2depth = (String) firstDoc.get("region_2depth_name");
-                    
+
                     log.info("📍 역지오코딩 성공: ({}, {}) → {} {}", latitude, longitude, region1depth, region2depth);
                     return new RegionInfo(region1depth, region2depth);
                 }
