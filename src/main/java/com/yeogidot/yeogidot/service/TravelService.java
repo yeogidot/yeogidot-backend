@@ -2,6 +2,7 @@ package com.yeogidot.yeogidot.service;
 
 import com.yeogidot.yeogidot.dto.TravelDto;
 import com.yeogidot.yeogidot.entity.*;
+import com.yeogidot.yeogidot.exception.ResourceNotFoundException;
 import com.yeogidot.yeogidot.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -203,7 +204,7 @@ public class TravelService {
     public TravelDto.DetailResponse getTravelDetail(Long travelId, User user) {
         // 1단계: Travel + TravelDays 조회
         Travel travel = travelRepository.findByIdWithDetails(travelId)
-                .orElseThrow(() -> new IllegalArgumentException("여행 기록을 찾을 수 없습니다. ID=" + travelId));
+                .orElseThrow(() -> new ResourceNotFoundException("여행 기록", travelId));
 
         // 권한 검증
         if (!travel.getUser().getId().equals(user.getId())) {
@@ -249,13 +250,12 @@ public class TravelService {
         }
 
         // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)
+        // N+1 개선: findByTravelDay() N번 → findByTravelDayIn() 1번으로 변경
         List<TravelDay> travelDays = travelDayRepository.findByTravelId(travelId);
-        for (TravelDay day : travelDays) {
-            List<Photo> photos = photoRepository.findByTravelDay(day);
-            for (Photo photo : photos) {
-                gcsService.deleteFile(photo.getFilePath());
-                log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
-            }
+        List<Photo> photos = photoRepository.findByTravelDayIn(travelDays);
+        for (Photo photo : photos) {
+            gcsService.deleteFile(photo.getFilePath());
+            log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
         }
 
         // DB는 Cascade로 자동 삭제 (Travel -> TravelDay -> Photo, TravelLog, Cment 모두 자동)

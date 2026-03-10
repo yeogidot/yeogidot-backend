@@ -24,12 +24,16 @@ public class SwaggerConfig {
                 .scheme("bearer")
                 .bearerFormat("JWT"));
 
-        Server server = new Server();
-        server.setUrl("https://yeogidot.jihongeek.com");
-        server.setDescription("운영 서버");
+        Server localServer = new Server();
+        localServer.setUrl("http://localhost:8080");
+        localServer.setDescription("로컬 서버");
+
+        Server prodServer = new Server();
+        prodServer.setUrl("https://yeogidot.jihongeek.com");
+        prodServer.setDescription("운영 서버");
 
         return new OpenAPI()
-                .servers(List.of(server))
+                .servers(List.of(localServer, prodServer))
                 .addSecurityItem(securityRequirement)
                 .components(components);
     }

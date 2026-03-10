@@ -8,6 +8,7 @@ on:
       - feature/cors-fix
       - feature/improve-error-response
       - feature/add-photo-region
+      - feature/performance-improvement
 
 jobs:
   deploy:
