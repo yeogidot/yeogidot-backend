@@ -59,11 +59,11 @@ public class AuthService {
     public String login(LoginRequest request) {
         // 1. 이메일로 사람 찾기
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
+                .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호를 확인해주세요."));
 
         // 2. 비밀번호 맞는지 확인
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 틀렸습니다.");
+            throw new IllegalArgumentException("이메일 또는 비밀번호를 확인해주세요.");
         }
 
         // 3. 다 맞으면 발급기 버튼 눌러서 토큰 생성!

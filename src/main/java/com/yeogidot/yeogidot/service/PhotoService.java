@@ -11,6 +11,7 @@ import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -69,12 +71,18 @@ public class PhotoService {
 
         List<Photo> savedPhotos = new ArrayList<>();
 
+        long totalStart = System.currentTimeMillis();
+        log.info("===== 사진 업로드 시작: 총 {}장 =====", files.size());
+
         for (int i = 0; i < files.size(); i++) {
             MultipartFile file = files.get(i);
             PhotoMetaDto meta = metaList.get(i);
+            log.info("----- 사진 {}/{} 처리 시작 -----", i + 1, files.size());
 
             // 1. GCS에 파일 업로드
+            long gcsStart = System.currentTimeMillis();
             String gcsUrl = gcsService.uploadFile(file);
+            log.info("[{}번] GCS 업로드 소요시간: {}ms", i + 1, System.currentTimeMillis() - gcsStart);
 
             // 2. latitude/longitude가 없으면 null 처리
             BigDecimal lat = meta.getLatitude() != null 
@@ -88,13 +96,16 @@ public class PhotoService {
             // 3. 지역 정보 조회 (위도/경도가 있는 경우)
             String region = null;
             if (lat != null && lng != null) {
+                long kakaoStart = System.currentTimeMillis();
                 region = geoCodingService.getDistrictFromCoordinates(lat, lng);
+                log.info("[{}번] 카카오 역지오코딩 소요시간: {}ms", i + 1, System.currentTimeMillis() - kakaoStart);
             }
 
             // 4. 촬영 시간 파싱 (타임존 정보 처리)
             LocalDateTime takenAt = parseTakenAt(meta.getTakenAt());
 
             // 5. Photo 엔티티 생성 (user 설정, travelDay는 null로 시작)
+            long dbStart = System.currentTimeMillis();
             Photo photo = Photo.builder()
                     .user(user)  // 사진 업로드한 사용자 설정
                     .filePath(gcsUrl)
@@ -107,7 +118,10 @@ public class PhotoService {
 
             // 6. DB에 저장
             savedPhotos.add(photoRepository.save(photo));
+            log.info("[{}번] DB 저장 소요시간: {}ms", i + 1, System.currentTimeMillis() - dbStart);
         }
+
+        log.info("===== 사진 업로드 완료: 총 소요시간 {}ms =====", System.currentTimeMillis() - totalStart);
 
         return savedPhotos;
     }
