@@ -2,6 +2,7 @@ package com.yeogidot.yeogidot.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpEntity;
@@ -42,6 +43,7 @@ public class GeoCodingService {
      * @param longitude 경도
      * @return 시/군/구 레벨 지역명 (예: "부산광역시 부산진구", "서울특별시 강남구")
      */
+    @Cacheable(value = "geocoding", key = "#latitude.setScale(4, java.math.RoundingMode.HALF_UP).toString() + ',' + #longitude.setScale(4, java.math.RoundingMode.HALF_UP).toString()")
     public String getDistrictFromCoordinates(BigDecimal latitude, BigDecimal longitude) {
         RegionInfo regionInfo = getDetailedRegion(latitude, longitude);
         if (regionInfo != null) {
