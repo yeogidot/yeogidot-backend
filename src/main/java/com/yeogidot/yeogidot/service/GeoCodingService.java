@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -19,12 +20,13 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class GeoCodingService {
 
     @Value("${kakao.api.key}")
     private String kakaoApiKey;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     /**
      * 위도/경도로 지역명 조회 (시/도 단위)
