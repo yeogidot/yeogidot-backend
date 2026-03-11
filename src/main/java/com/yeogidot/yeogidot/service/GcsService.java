@@ -14,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 
 /**
  * Google Cloud Storage 파일 업로드 서비스
@@ -25,6 +26,9 @@ public class GcsService {
     
     @Value("${spring.cloud.gcp.storage.bucket}")
     private String bucketName;
+
+    // 동시 업로드 수 제한 (OOM 방지: 폰 사진 10장 동시 처리 시 힙 초과)
+    private static final Semaphore uploadSemaphore = new Semaphore(3);
     
     private final Storage storage;
 
@@ -45,24 +49,36 @@ public class GcsService {
 
         log.info("📤 GCS 업로드 시작: {} → {}", originalFilename, fileName);
 
-        // 이미지 압축 (JPEG/PNG만 압축, 나머지는 원본 그대로)
-        byte[] uploadBytes = compressIfImage(file);
-        log.info("📦 파일 크기: {}KB → {}KB", file.getSize() / 1024, uploadBytes.length / 1024);
+        // 동시 업로드 수 제한 (최대 3개 동시 처리)
+        try {
+            uploadSemaphore.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("업로드 대기 중 인터럽트 발생", e);
+        }
 
-        // GCS에 저장할 파일 정보 설정
-        BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, fileName)
-                .setContentType(file.getContentType())
-                .build();
+        try {
+            // 이미지 압축 (JPEG/PNG만 압축, 나머지는 원본 그대로)
+            byte[] uploadBytes = compressIfImage(file);
+            log.info("📦 파일 크기: {}KB → {}KB", file.getSize() / 1024, uploadBytes.length / 1024);
 
-        // 파일 업로드
-        Blob blob = storage.create(blobInfo, uploadBytes);
+            // GCS에 저장할 파일 정보 설정
+            BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, fileName)
+                    .setContentType(file.getContentType())
+                    .build();
 
-        // 공개 URL 반환
-        String publicUrl = String.format("https://storage.googleapis.com/%s/%s", bucketName, fileName);
-        
-        log.info("✅ GCS 업로드 완료: {}", publicUrl);
-        
-        return publicUrl;
+            // 파일 업로드
+            Blob blob = storage.create(blobInfo, uploadBytes);
+
+            // 공개 URL 반환
+            String publicUrl = String.format("https://storage.googleapis.com/%s/%s", bucketName, fileName);
+
+            log.info("✅ GCS 업로드 완료: {}", publicUrl);
+
+            return publicUrl;
+        } finally {
+            uploadSemaphore.release(); // 반드시 반환 (예외 발생해도)
+        }
     }
 
     /**
@@ -91,18 +107,25 @@ public class GcsService {
     }
 
     public void deleteFile(String fileUrl) {
-        // fileUrl 예시: https://storage.googleapis.com/버킷이름/파일명.jpg
-        String fileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+        // fileUrl 예시: https://storage.googleapis.com/버킷이름/folder/uuid.jpg
+        // lastIndexOf("/")는 파일명만 추출하므로 서브 경로(folder/uuid.jpg)가 있으면 GCS에서 찾지 못함
+        // → 버킷명 이후의 전체 객체 경로를 추출해야 정확히 삭제됨
+        String prefix = "https://storage.googleapis.com/" + bucketName + "/";
+        if (!fileUrl.startsWith(prefix)) {
+            log.warn("GCS 파일 URL 형식이 올바르지 않습니다: {}", fileUrl);
+            return;
+        }
+        String objectName = fileUrl.substring(prefix.length());
 
-        log.info("GCS 파일 삭제 시도: {}", fileName);
+        log.info("GCS 파일 삭제 시도: {}", objectName);
 
-        BlobId blobId = BlobId.of(bucketName, fileName);
+        BlobId blobId = BlobId.of(bucketName, objectName);
         boolean deleted = storage.delete(blobId);
 
         if (deleted) {
-            log.info("GCS 파일 삭제 완료: {}", fileName);
+            log.info("GCS 파일 삭제 완료: {}", objectName);
         } else {
-            log.warn("GCS 파일을 찾을 수 없거나 삭제 실패: {}", fileName);
+            log.warn("GCS 파일을 찾을 수 없거나 삭제 실패: {}", objectName);
         }
     }
 }
