@@ -322,12 +322,9 @@ public class PhotoService {
         TravelDay targetDay = travelDayRepository.findById(dayId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 날짜입니다."));
         
-        // 권한 검증: 사진의 소유자와 목적지 여행의 소유자가 같은지 확인
-        if (photo.getTravelDay() != null) {
-            Long photoOwnerId = photo.getTravelDay().getTravel().getUser().getId();
-            if (!photoOwnerId.equals(currentUserId)) {
-                throw new SecurityException("사진을 이동할 권한이 없습니다.");
-            }
+        // 권한 검증: photo.getUser()로 직접 소유자 확인 (TravelDay 여부 무관)
+        if (!photo.getUser().getId().equals(currentUserId)) {
+            throw new SecurityException("사진을 이동할 권한이 없습니다.");
         }
         
         Long targetOwnerId = targetDay.getTravel().getUser().getId();

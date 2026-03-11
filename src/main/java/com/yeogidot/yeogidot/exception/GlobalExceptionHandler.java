@@ -71,6 +71,22 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 인증된 유저가 DB에 없음 (401 Unauthorized)
+     * - JWT는 유효하지만 DB에 유저가 없는 경우 (탈퇴 등)
+     */
+    @ExceptionHandler(UnauthenticatedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthenticatedException(UnauthenticatedException e) {
+        log.error("인증 유저 없음: {}", e.getMessage());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 401);
+        response.put("error", "UNAUTHORIZED");
+        response.put("message", "인증이 필요합니다. 다시 로그인해주세요.");
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    /**
      * 보안 예외 (403 Forbidden)
      * - 본인의 리소스가 아님
      * - 삭제/수정 권한 없음

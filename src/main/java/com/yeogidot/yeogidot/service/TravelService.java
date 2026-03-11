@@ -484,7 +484,7 @@ public class TravelService {
 
         // DB에 share_url이 없거나 구 도메인(travel.vercel.app)이면 새로 생성
         if (travel.getShareUrl() == null || travel.getShareUrl().isEmpty()
-                || travel.getShareUrl().contains("travel.vercel.app")) {
+                || !travel.getShareUrl().startsWith(frontendBaseUrl)) {
             String uuid = UUID.randomUUID().toString();
             String fullUrl = frontendBaseUrl + "/share/" + uuid;
 

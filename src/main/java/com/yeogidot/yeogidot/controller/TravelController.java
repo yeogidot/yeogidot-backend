@@ -1,6 +1,7 @@
 package com.yeogidot.yeogidot.controller;
 
 import com.yeogidot.yeogidot.dto.TravelDto;
+import com.yeogidot.yeogidot.exception.UnauthenticatedException;
 import com.yeogidot.yeogidot.dto.TravelUpdateRequest;
 import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.repository.UserRepository;
@@ -889,7 +890,7 @@ public class TravelController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
+                .orElseThrow(() -> new UnauthenticatedException("인증된 사용자를 찾을 수 없습니다."));
     }
 
     // 여행 공유 URL 조회/생성
