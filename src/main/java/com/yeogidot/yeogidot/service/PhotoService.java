@@ -23,6 +23,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,6 +31,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class PhotoService {
+
+    // 동시 업로드 수 제한 (최대 3장): 폰 사진 다수 동시 처리 시 OOM 방지
+    private static final Semaphore uploadSemaphore = new Semaphore(3);
 
     private final PhotoRepository photoRepository;
     private final CmentRepository cmentRepository;
@@ -83,6 +87,13 @@ public class PhotoService {
 
             CompletableFuture<Photo> future = CompletableFuture.supplyAsync(() -> {
                 try {
+                    // Semaphore 획득: 최대 3장만 동시 실행, 나머지는 대기
+                    uploadSemaphore.acquire();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("업로드 대기 중 인터럽트", e);
+                }
+                try {
                     log.info("----- 사진 {}/{} 처리 시작 (병렬) -----", index + 1, files.size());
 
                     // 1. GCS 업로드 (여러 사진 동시 실행)
@@ -120,6 +131,8 @@ public class PhotoService {
 
                 } catch (IOException e) {
                     throw new RuntimeException(index + 1 + "번 사진 처리 실패", e);
+                } finally {
+                    uploadSemaphore.release(); // 반드시 반환 (예외 발생해도)
                 }
             });
 
