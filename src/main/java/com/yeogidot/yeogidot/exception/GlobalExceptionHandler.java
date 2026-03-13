@@ -210,6 +210,22 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 로그인 시도 횟수 초과 (429 Too Many Requests)
+     * - 5회 실패 시 5분간 잠금
+     */
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<Map<String, Object>> handleTooManyRequestsException(TooManyRequestsException e) {
+        log.warn("로그인 시도 초과: {}", e.getMessage());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 429);
+        response.put("error", "TOO_MANY_REQUESTS");
+        response.put("message", e.getMessage());
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
+    }
+
+    /**
      * 잘못된 인자 (400 Bad Request)
      * - 필수 파라미터 누락
      * - 잘못된 데이터 형식
