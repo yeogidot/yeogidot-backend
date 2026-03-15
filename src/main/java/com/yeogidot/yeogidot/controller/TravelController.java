@@ -467,8 +467,8 @@ public class TravelController {
     )
     @ApiResponses({
             @ApiResponse(
-                    responseCode = "200",
-                    description = "여행 일차 삭제 성공"
+                    responseCode = "204",
+                    description = "여행 일차 삭제 성공 (응답 본문 없음)"
             ),
             @ApiResponse(
                     responseCode = "401",
@@ -526,7 +526,7 @@ public class TravelController {
     ) {
         User user = getCurrentUser();
         travelService.deleteTravelDay(dayId, user);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     // 여행 일차 수동 추가

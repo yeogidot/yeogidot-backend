@@ -59,17 +59,16 @@ public class AuthController {
                     )
             ),
             @ApiResponse(
-                    responseCode = "500",
-                    description = "서버 오류 (이미 가입된 이메일 등)",
+                    responseCode = "400",
+                    description = "이미 존재하는 이메일",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
                                             {
-                                              "status": 500,
-                                              "error": "RUNTIME_ERROR",
-                                              "message": "서버 처리 중 오류가 발생했습니다.",
-                                              "detail": "이미 가입된 이메일입니다."
+                                              "status": 400,
+                                              "error": "BAD_REQUEST",
+                                              "message": "이미 존재하는 이메일입니다."
                                             }
                                             """
                             )
