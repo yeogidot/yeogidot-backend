@@ -1,6 +1,7 @@
 package com.yeogidot.yeogidot.controller;
 
 import com.yeogidot.yeogidot.dto.TravelDto;
+import com.yeogidot.yeogidot.exception.UnauthenticatedException;
 import com.yeogidot.yeogidot.dto.TravelUpdateRequest;
 import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.repository.UserRepository;
@@ -466,8 +467,8 @@ public class TravelController {
     )
     @ApiResponses({
             @ApiResponse(
-                    responseCode = "200",
-                    description = "여행 일차 삭제 성공"
+                    responseCode = "204",
+                    description = "여행 일차 삭제 성공 (응답 본문 없음)"
             ),
             @ApiResponse(
                     responseCode = "401",
@@ -525,7 +526,7 @@ public class TravelController {
     ) {
         User user = getCurrentUser();
         travelService.deleteTravelDay(dayId, user);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     // 여행 일차 수동 추가
@@ -889,7 +890,7 @@ public class TravelController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
+                .orElseThrow(() -> new UnauthenticatedException("인증된 사용자를 찾을 수 없습니다."));
     }
 
     // 여행 공유 URL 조회/생성

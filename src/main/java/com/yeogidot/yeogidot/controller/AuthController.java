@@ -59,17 +59,16 @@ public class AuthController {
                     )
             ),
             @ApiResponse(
-                    responseCode = "500",
-                    description = "서버 오류 (이미 가입된 이메일 등)",
+                    responseCode = "400",
+                    description = "이미 존재하는 이메일",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
                                     value = """
                                             {
-                                              "status": 500,
-                                              "error": "RUNTIME_ERROR",
-                                              "message": "서버 처리 중 오류가 발생했습니다.",
-                                              "detail": "이미 가입된 이메일입니다."
+                                              "status": 400,
+                                              "error": "BAD_REQUEST",
+                                              "message": "이미 존재하는 이메일입니다."
                                             }
                                             """
                             )
@@ -107,7 +106,7 @@ public class AuthController {
             ),
             @ApiResponse(
                     responseCode = "400",
-                    description = "잘못된 요청 (가입되지 않은 이메일 또는 비밀번호 불일치)",
+                    description = "잘못된 요청 (이메일 또는 비밀번호 불일치)",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
@@ -115,7 +114,7 @@ public class AuthController {
                                             {
                                               "status": 400,
                                               "error": "BAD_REQUEST",
-                                              "message": "가입되지 않은 이메일입니다."
+                                              "message": "이메일 또는 비밀번호를 확인해주세요."
                                             }
                                             """
                             )

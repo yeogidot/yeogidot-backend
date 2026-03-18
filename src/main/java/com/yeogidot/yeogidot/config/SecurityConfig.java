@@ -56,7 +56,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",                    // 회원가입, 로그인
                                 "/api/travels/share/**",          // 여행 공유 URL 조회 (공개)
-                                "/api/photos/map-markers",        // 지도 마커 조회 (공개)
                                 "/swagger-ui/**",                 // Swagger UI
                                 "/v3/api-docs/**"                 // API 문서
                         ).permitAll()

@@ -1,6 +1,7 @@
 package com.yeogidot.yeogidot.controller;
 
 import com.yeogidot.yeogidot.dto.MovePhotoRequest;
+import com.yeogidot.yeogidot.exception.UnauthenticatedException;
 import com.yeogidot.yeogidot.dto.PhotoDto;
 import com.yeogidot.yeogidot.dto.PhotoUpdateRequest;
 import com.yeogidot.yeogidot.dto.TravelDto;
@@ -261,7 +262,12 @@ public class PhotoController {
             @Parameter(description = "조회할 사진의 ID", required = true, example = "1")
             @PathVariable Long photoId
     ) {
-        return ResponseEntity.ok(photoService.getPhotoById(photoId));
+        User user = getCurrentUser();
+        Photo photo = photoService.getPhotoById(photoId);
+        if (!photo.getUser().getId().equals(user.getId())) {
+            throw new SecurityException("해당 사진을 조회할 권한이 없습니다.");
+        }
+        return ResponseEntity.ok(photo);
     }
 
     /**
@@ -776,6 +782,6 @@ public class PhotoController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
+                .orElseThrow(() -> new UnauthenticatedException("인증된 사용자를 찾을 수 없습니다."));
     }
 }

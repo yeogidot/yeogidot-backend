@@ -53,6 +53,12 @@ dependencies {
 	/* ───────────── DB ───────────── */
 	runtimeOnly 'com.mysql:mysql-connector-j'
 
+	/* ───────────── Image 압축 ───────────── */
+	implementation 'net.coobird:thumbnailator:0.4.20'
+
+	/* ───────────── Redis ───────────── */
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
 	/* ───────────── Lombok ───────────── */
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

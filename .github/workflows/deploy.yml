@@ -74,8 +74,8 @@ jobs:
             # app 디렉토리로 이동 후 실행
             cd ~/app
           
-            # 애플리케이션 실행
-            nohup java -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &
+            # 애플리케이션 실행 (e2-standard-2 8GB 기준: 힙 최소 512MB, 최대 2GB)
+            nohup java -Xms512m -Xmx2g -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &
           
             # 프로세스 확인
             sleep 3

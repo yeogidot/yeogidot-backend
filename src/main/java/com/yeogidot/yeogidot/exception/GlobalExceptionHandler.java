@@ -71,6 +71,22 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 인증된 유저가 DB에 없음 (401 Unauthorized)
+     * - JWT는 유효하지만 DB에 유저가 없는 경우 (탈퇴 등)
+     */
+    @ExceptionHandler(UnauthenticatedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthenticatedException(UnauthenticatedException e) {
+        log.error("인증 유저 없음: {}", e.getMessage());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 401);
+        response.put("error", "UNAUTHORIZED");
+        response.put("message", "인증이 필요합니다. 다시 로그인해주세요.");
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    /**
      * 보안 예외 (403 Forbidden)
      * - 본인의 리소스가 아님
      * - 삭제/수정 권한 없음
@@ -191,6 +207,22 @@ public class GlobalExceptionHandler {
         response.put("detail", "입력값을 확인해주세요.");
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
+     * 로그인 시도 횟수 초과 (429 Too Many Requests)
+     * - 5회 실패 시 5분간 잠금
+     */
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<Map<String, Object>> handleTooManyRequestsException(TooManyRequestsException e) {
+        log.warn("로그인 시도 초과: {}", e.getMessage());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 429);
+        response.put("error", "TOO_MANY_REQUESTS");
+        response.put("message", e.getMessage());
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
     }
 
     /**

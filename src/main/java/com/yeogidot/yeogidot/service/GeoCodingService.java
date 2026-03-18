@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -19,12 +20,13 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class GeoCodingService {
 
     @Value("${kakao.api.key}")
     private String kakaoApiKey;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     /**
      * 위도/경도로 지역명 조회 (시/도 단위)
@@ -101,13 +103,15 @@ public class GeoCodingService {
 
             Map<String, Object> body = response.getBody();
             if (body != null && body.containsKey("documents")) {
-                java.util.List<Map<String, Object>> documents =
-                        (java.util.List<Map<String, Object>>) body.get("documents");
+                Object documentsObj = body.get("documents");
+                if (!(documentsObj instanceof java.util.List<?>)) return null;
+                java.util.List<?> documents = (java.util.List<?>) documentsObj;
 
                 if (!documents.isEmpty()) {
-                    Map<String, Object> firstDoc = documents.get(0);
-                    String region1depth = (String) firstDoc.get("region_1depth_name");
-                    String region2depth = (String) firstDoc.get("region_2depth_name");
+                    Object firstDocObj = documents.get(0);
+                    if (!(firstDocObj instanceof Map<?, ?> firstDoc)) return null;
+                    String region1depth = firstDoc.get("region_1depth_name") instanceof String s ? s : null;
+                    String region2depth = firstDoc.get("region_2depth_name") instanceof String s ? s : null;
 
                     log.info("📍 역지오코딩 성공: ({}, {}) → {} {}", latitude, longitude, region1depth, region2depth);
                     return new RegionInfo(region1depth, region2depth);
