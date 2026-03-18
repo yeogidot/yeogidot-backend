@@ -70,6 +70,7 @@ public class TravelDto {
     public static class DetailResponse {
         private Long travelId;
         private String title;
+        private String trvRegion; // 추가
         private Long representativePhotoId;
         private String shareUrl;
         private LocalDate startDate;
@@ -114,6 +115,19 @@ public class TravelDto {
         private LocalDateTime takenAt;
         private BigDecimal latitude;
         private BigDecimal longitude;
+        private String region;  // 지역 정보 (예: "부산광역시 부산진구")
+        private List<CommentDetail> comments; // 추가
+    }
+
+    // 댓글 상세 정보
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CommentDetail {
+        private Long commentId;
+        private String content;
+        private LocalDateTime createdAt;
     }
 
     // 일기 상세 정보

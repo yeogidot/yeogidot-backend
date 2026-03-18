@@ -1,8 +1,10 @@
 package com.yeogidot.yeogidot.service;
 
 // DTO (요청 데이터)
+
 import com.yeogidot.yeogidot.dto.LoginRequest;
 import com.yeogidot.yeogidot.dto.SignupRequest;
+import com.yeogidot.yeogidot.exception.TooManyRequestsException;
 
 // Entity (DB 테이블)
 import com.yeogidot.yeogidot.entity.User;
@@ -26,6 +28,8 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder; // 비밀번호 암호화 도구
     private final JwtTokenProvider jwtTokenProvider; // JWT 토큰 생성 도구
+    private final LoginAttemptService loginAttemptService; // 로그인 시도 제한
+
     @Transactional
     public void signup(SignupRequest request) {
         // 1. 약관 동의 체크
@@ -51,19 +55,32 @@ public class AuthService {
 
         userRepository.save(user);
     }
-    // ★ 로그인 기능 추가
-    @Transactional(readOnly = true)
-    public String login(LoginRequest request) {
-        // 1. 이메일로 사람 찾기
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
 
-        // 2. 비밀번호 맞는지 확인
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 틀렸습니다.");
+    //  로그인 기능 추가
+    @Transactional
+    public String login(LoginRequest request) {
+        // 1. 로그인 시도 차단 여부 확인 (5회 실패 시 5분간 잠금)
+        if (loginAttemptService.isBlocked(request.getEmail())) {
+            throw new TooManyRequestsException("로그인 시도가 너무 많습니다. 5분 후 다시 시도해주세요.");
         }
 
-        // 3. 다 맞으면 발급기 버튼 눌러서 토큰 생성!
+        // 2. 이메일로 사람 찾기
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> {
+                    loginAttemptService.loginFailed(request.getEmail());
+                    return new IllegalArgumentException("이메일 또는 비밀번호를 확인해주세요.");
+                });
+
+        // 3. 비밀번호 맞는지 확인
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            loginAttemptService.loginFailed(request.getEmail());
+            throw new IllegalArgumentException("이메일 또는 비밀번호를 확인해주세요.");
+        }
+
+        // 4. 로그인 성공 시 시도 횟수 초기화
+        loginAttemptService.loginSucceeded(request.getEmail());
+
+        // 5. 다 맞으면 발급기 버튼 눌러서 토큰 생성!
         return jwtTokenProvider.createToken(user.getId(), user.getEmail());
     }
 }

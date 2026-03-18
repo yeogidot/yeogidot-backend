@@ -1,5 +1,7 @@
 package com.yeogidot.yeogidot.config;
 
+import com.yeogidot.yeogidot.exception.JwtAccessDeniedHandler;
+import com.yeogidot.yeogidot.exception.JwtAuthenticationEntryPoint;
 import com.yeogidot.yeogidot.security.JwtAuthenticationFilter;
 import com.yeogidot.yeogidot.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,8 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -38,13 +42,20 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
+
+                // 예외 처리 설정 추가
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)  // 401 처리
+                        .accessDeniedHandler(jwtAccessDeniedHandler)             // 403 처리
+                )
+
                 .authorizeHttpRequests(auth -> auth
                         // OPTIONS 요청 (CORS preflight) 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 인증 불필요 경로
                         .requestMatchers(
                                 "/api/auth/**",                    // 회원가입, 로그인
-                                "/api/photos/map-markers",        // 지도 마커 조회 (공개)
+                                "/api/travels/share/**",          // 여행 공유 URL 조회 (공개)
                                 "/swagger-ui/**",                 // Swagger UI
                                 "/v3/api-docs/**"                 // API 문서
                         ).permitAll()
@@ -53,7 +64,7 @@ public class SecurityConfig {
                 )
                 // JWT 필터 등록
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtTokenProvider), 
+                        new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class
                 );
 
@@ -63,31 +74,30 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // 개발 환경: localhost 모든 포트 허용
         // 운영 환경: 실제 프론트엔드 도메인으로 변경 필요
         configuration.setAllowedOriginPatterns(Arrays.asList(
-                "http://localhost",           // 포트 없는 localhost
-                "http://localhost:*",         // localhost 모든 포트
-                "http://127.0.0.1",           // 포트 없는 127.0.0.1
+                "http://localhost:*",         // localhost 모든 포트 (5173, 3000 등)
                 "http://127.0.0.1:*",         // 127.0.0.1 모든 포트
-                "http://34.50.29.65:*"        // GCP 서버
+                "https://yeogidot.jihongeek.com",
+                "https://yeogidot-frontend.jihongeek.workers.dev"
         ));
-        
+
         // 모든 HTTP 메서드 허용 (OPTIONS 포함!)
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
         ));
-        
+
         // 모든 헤더 허용
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        
+
         // 노출할 헤더 설정
         configuration.setExposedHeaders(Arrays.asList("*"));
-        
+
         // 인증 정보 포함 허용
         configuration.setAllowCredentials(true);
-        
+
         // preflight 요청 캐시 시간 (1시간)
         configuration.setMaxAge(3600L);
 

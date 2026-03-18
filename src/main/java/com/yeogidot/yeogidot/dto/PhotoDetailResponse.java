@@ -20,4 +20,5 @@ public class PhotoDetailResponse {
     private LocalDateTime takenAt; // 촬영 일시
     private BigDecimal latitude;   // 위도
     private BigDecimal longitude;  // 경도
+    private String region;         // 지역 정보 (예: "부산광역시 부산진구")
 }

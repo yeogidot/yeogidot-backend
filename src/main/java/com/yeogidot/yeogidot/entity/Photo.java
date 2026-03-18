@@ -55,8 +55,13 @@ public class Photo extends BaseTimeEntity {
     @Column(name = "taken_at", nullable = false)
     private LocalDateTime takenAt;
 
+    // 지역 정보 (시/도 + 시/군/구, 예: "부산광역시 부산진구")
+    @Column(name = "region", length = 100)
+    private String region;
+
     @JsonIgnore  // JSON 직렬화 시 제외 (Lazy Loading 에러 방지)
     @OneToMany(mappedBy = "photo", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdDate ASC")
     @Builder.Default
     private List<Cment> comments = new ArrayList<>();
 
@@ -73,5 +78,16 @@ public class Photo extends BaseTimeEntity {
     // 촬영 시간 수정 메서드
     public void updateTakenAt(LocalDateTime takenAt) {
         this.takenAt = takenAt;
+    }
+    
+    // 위치 정보 수정 메서드
+    public void updateLocation(BigDecimal latitude, BigDecimal longitude) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
+    
+    // 지역 정보 수정 메서드
+    public void updateRegion(String region) {
+        this.region = region;
     }
 }
