@@ -106,7 +106,7 @@ public class AuthController {
             ),
             @ApiResponse(
                     responseCode = "400",
-                    description = "잘못된 요청 (가입되지 않은 이메일 또는 비밀번호 불일치)",
+                    description = "잘못된 요청 (이메일 또는 비밀번호 불일치)",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(
@@ -114,7 +114,7 @@ public class AuthController {
                                             {
                                               "status": 400,
                                               "error": "BAD_REQUEST",
-                                              "message": "가입되지 않은 이메일입니다."
+                                              "message": "이메일 또는 비밀번호를 확인해주세요."
                                             }
                                             """
                             )
