@@ -35,6 +35,10 @@ public class GeoCodingService {
      * @param longitude 경도
      * @return 지역명 (예: "부산광역시", "제주특별자치도")
      */
+    @Cacheable(
+            value = "geocoding",
+            key = "'region1:' + #latitude.setScale(4, T(java.math.RoundingMode).HALF_UP).toString() + ',' + #longitude.setScale(4, T(java.math.RoundingMode).HALF_UP).toString()"
+    )
     public String getRegionFromCoordinates(BigDecimal latitude, BigDecimal longitude) {
         RegionInfo regionInfo = getDetailedRegion(latitude, longitude);
         return regionInfo != null ? regionInfo.getRegion1depth() : null;
