@@ -39,13 +39,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 1. 요청 헤더에서 JWT 토큰 추출
         String token = resolveToken(request);
 
-        // 2. 토큰이 있고 유효하면 인증 처리
-        if (token != null && jwtTokenProvider.validateToken(token)) {
+        // 2. 토큰이 있는데 유효하지 않으면 즉시 401 반환
+        if (token != null && !jwtTokenProvider.validateToken(token)) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+            return;
+        }
+
+        // 3. 토큰이 유효하면 인증 처리
+        if (token != null) {
             Authentication auth = jwtTokenProvider.getAuthentication(token);
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
 
-        // 3. 다음 필터로 진행
+        // 4. 다음 필터로 진행
         filterChain.doFilter(request, response);
     }
 

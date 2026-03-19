@@ -59,11 +59,16 @@ public class LoginAttemptService {
 
         if (attempts == null) return false;
 
-        boolean blocked = Integer.parseInt(attempts) >= MAX_ATTEMPTS;
-        if (blocked) {
-            log.warn("🚫 로그인 차단: {} - {}회 초과", email, attempts);
+        try {
+            boolean blocked = Integer.parseInt(attempts) >= MAX_ATTEMPTS;
+            if (blocked) {
+                log.warn("🚫 로그인 차단: {} - {}회 초과", email, attempts);
+            }
+            return blocked;
+        } catch (NumberFormatException e) {
+            log.error("❌ 로그인 시도 횟수 파싱 오류: {}", attempts);
+            return false;
         }
-        return blocked;
     }
 
     /**

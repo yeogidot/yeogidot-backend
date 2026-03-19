@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeogidot.yeogidot.dto.PhotoDto;
 import com.yeogidot.yeogidot.dto.TravelDto;
 import com.yeogidot.yeogidot.entity.*;
-import com.yeogidot.yeogidot.repository.CmentRepository;
+import com.yeogidot.yeogidot.repository.CommentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
 import lombok.Data;
@@ -29,14 +29,14 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class PhotoService {
 
     // 동시 업로드 수 제한 (최대 3장): 폰 사진 다수 동시 처리 시 OOM 방지
     private static final Semaphore uploadSemaphore = new Semaphore(3);
 
     private final PhotoRepository photoRepository;
-    private final CmentRepository cmentRepository;
+    private final CommentRepository commentRepository;
     private final GcsService gcsService;
     private final GeoCodingService geoCodingService;
     private final ObjectMapper objectMapper;
@@ -56,17 +56,19 @@ public class PhotoService {
     /**
      * 여러 사진 업로드 (여행에 연결하지 않고 독립적으로 저장)
      */
+    @Transactional
     public List<Photo> uploadPhotos(List<MultipartFile> files, String metadataJson, User user) throws IOException {
         // JSON 파싱 시도 - 형식 오류는 명확한 예외로 변환
         List<PhotoMetaDto> metaList;
         try {
-            metaList = objectMapper.readValue(metadataJson, new TypeReference<>() {});
+            metaList = objectMapper.readValue(metadataJson, new TypeReference<>() {
+            });
         } catch (JsonProcessingException e) {
             // JSON 파싱 실패 → 400 Bad Request
             throw new IllegalArgumentException(
-                "메타데이터 형식이 올바르지 않습니다. JSON 배열 형식이어야 합니다. " +
-                "예시: [{\"originalName\":\"photo1.jpg\",\"takenAt\":\"2025-11-12T10:00:00\",\"latitude\":35.1584,\"longitude\":129.1603}]",
-                e
+                    "메타데이터 형식이 올바르지 않습니다. JSON 배열 형식이어야 합니다. " +
+                            "예시: [{\"originalName\":\"photo1.jpg\",\"takenAt\":\"2025-11-12T10:00:00\",\"latitude\":35.1584,\"longitude\":129.1603}]",
+                    e
             );
         }
 
@@ -141,21 +143,38 @@ public class PhotoService {
 
         // ✅ 모든 병렬 작업 완료 대기 후 DB에 순차 저장
         // (DB 저장은 @Transactional이 메인 스레드에서 동작하므로 여기서 처리)
-        List<Photo> savedPhotos = futures.stream()
-                .map(future -> {
-                    Photo photo = future.join(); // 각 작업 완료될 때까지 대기
-                    long dbStart = System.currentTimeMillis();
-                    Photo saved = photoRepository.save(photo);
-                    log.info("DB 저장 소요시간: {}ms", System.currentTimeMillis() - dbStart);
-                    return saved;
-                })
-                .collect(Collectors.toList());
+        List<Photo> uploadedPhotos = new ArrayList<>(); // GCS 업로드 완료된 사진들 추적
+        List<Photo> savedPhotos = new ArrayList<>();
+
+        try {
+            for (CompletableFuture<Photo> future : futures) {
+                Photo photo = future.join(); // 각 작업 완료될 때까지 대기
+                uploadedPhotos.add(photo);  // GCS 업로드 완료 목록에 추가
+
+                long dbStart = System.currentTimeMillis();
+                Photo saved = photoRepository.save(photo);
+                log.info("DB 저장 소요시간: {}ms", System.currentTimeMillis() - dbStart);
+                savedPhotos.add(saved);
+            }
+        } catch (Exception e) {
+            // DB 저장 실패 시 이미 GCS에 올라간 파일들 모두 삭제
+            log.error("❌ DB 저장 실패, GCS 파일 롤백 시작 - 삭제 대상: {}장", uploadedPhotos.size());
+            for (Photo photo : uploadedPhotos) {
+                try {
+                    gcsService.deleteFile(photo.getFilePath());
+                    log.info("🗑️ GCS 롤백 삭제: {}", photo.getFilePath());
+                } catch (Exception deleteException) {
+                    log.error("❌ GCS 롤백 삭제 실패: {}", photo.getFilePath(), deleteException);
+                }
+            }
+            throw e; // 예외 다시 던져서 트랜잭션 롤백
+        }
 
         log.info("===== 사진 업로드 완료: 총 소요시간 {}ms =====", System.currentTimeMillis() - totalStart);
 
         return savedPhotos;
     }
-    
+
     /**
      * 타임존 정보가 포함된 날짜 문자열을 LocalDateTime으로 변환
      */
@@ -188,24 +207,26 @@ public class PhotoService {
     }
 
     // 댓글 작성 - 누구나 가능
+    @Transactional
     public Long createComment(Long photoId, TravelDto.CommentRequest request, User user) {
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사진입니다."));
 
         // 권한 검증 제거 (누구나 댓글 작성 가능)
-        Cment cment = Cment.builder()
+        Comment cment = Comment.builder()
                 .photo(photo)
                 .writer(user)  // ⭐ 작성자 저장
                 .content(request.getContent())
                 .build();
 
-        return cmentRepository.save(cment).getId();
+        return commentRepository.save(cment).getId();
     }
 
     // 사진 ID로 댓글 수정
+    @Transactional
     public void updateCommentByPhotoId(Long photoId, TravelDto.CommentRequest request, User user) {
         // photoId로 댓글 찾기
-        Cment cment = cmentRepository.findByPhotoId(photoId)
+        Comment cment = commentRepository.findByPhotoId(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 사진에 댓글이 존재하지 않습니다."));
 
         // 작성자 본인 확인
@@ -218,9 +239,10 @@ public class PhotoService {
     }
 
     // 사진 ID로 댓글 삭제
+    @Transactional
     public void deleteCommentByPhotoId(Long photoId, User user) {
         // photoId로 댓글 찾기
-        Cment cment = cmentRepository.findByPhotoId(photoId)
+        Comment cment = commentRepository.findByPhotoId(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 사진에 댓글이 존재하지 않습니다."));
 
         // 권한 확인
@@ -232,7 +254,7 @@ public class PhotoService {
         }
 
         // 삭제
-        cmentRepository.delete(cment);
+        commentRepository.delete(cment);
     }
 
     /**
@@ -313,12 +335,12 @@ public class PhotoService {
     public void updateTakenAt(Long photoId, LocalDateTime newTakenAt, User user) {
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
-        
+
         // 권한 검증
         if (!photo.getUser().getId().equals(user.getId())) {
             throw new SecurityException("촬영 시간을 수정할 권한이 없습니다.");
         }
-        
+
         photo.updateTakenAt(newTakenAt);
     }
 
@@ -330,25 +352,25 @@ public class PhotoService {
         // 사진 조회
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
-        
+
         // 목적지 TravelDay 조회
         TravelDay targetDay = travelDayRepository.findById(dayId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 날짜입니다."));
-        
+
         // 권한 검증: photo.getUser()로 직접 소유자 확인 (TravelDay 여부 무관)
         if (!photo.getUser().getId().equals(currentUserId)) {
             throw new SecurityException("사진을 이동할 권한이 없습니다.");
         }
-        
+
         Long targetOwnerId = targetDay.getTravel().getUser().getId();
         if (!targetOwnerId.equals(currentUserId)) {
             throw new SecurityException("해당 여행에 사진을 추가할 권한이 없습니다.");
         }
-        
+
         // 사진 이동
         photo.setTravelDay(targetDay);
     }
-    
+
     /**
      * 사진 정보 통합 수정 (PATCH)
      * - null이 아닌 필드만 수정됨
@@ -357,36 +379,36 @@ public class PhotoService {
     public void updatePhoto(Long photoId, com.yeogidot.yeogidot.dto.PhotoUpdateRequest request, User user) {
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
-        
+
         // 권한 검증
         if (!photo.getUser().getId().equals(user.getId())) {
             throw new SecurityException("사진을 수정할 권한이 없습니다.");
         }
-        
+
         // 촬영 시간 수정
         if (request.getTakenAt() != null) {
             photo.updateTakenAt(request.getTakenAt());
         }
-        
+
         // 여행 일차 이동
         if (request.getDayId() != null) {
             TravelDay targetDay = travelDayRepository.findById(request.getDayId())
                     .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 날짜입니다."));
-            
+
             // 목적지 여행의 소유자 확인
             if (!targetDay.getTravel().getUser().getId().equals(user.getId())) {
                 throw new SecurityException("해당 여행에 사진을 추가할 권한이 없습니다.");
             }
-            
+
             photo.setTravelDay(targetDay);
         }
-        
+
         // 위치 정보 수정
         if (request.getLatitude() != null && request.getLongitude() != null) {
             BigDecimal lat = BigDecimal.valueOf(request.getLatitude());
             BigDecimal lng = BigDecimal.valueOf(request.getLongitude());
             photo.updateLocation(lat, lng);
-            
+
             // 위치 변경 시 지역 정보도 업데이트
             String newRegion = geoCodingService.getDistrictFromCoordinates(lat, lng);
             photo.updateRegion(newRegion);

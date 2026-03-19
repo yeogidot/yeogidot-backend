@@ -3,6 +3,7 @@ package com.yeogidot.yeogidot.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -63,7 +64,7 @@ public class Photo extends BaseTimeEntity {
     @OneToMany(mappedBy = "photo", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("createdDate ASC")
     @Builder.Default
-    private List<Cment> comments = new ArrayList<>();
+    private List<Comment> comments = new ArrayList<>();
 
     // URL getter (filePath를 url로 사용)
     public String getUrl() {
@@ -79,13 +80,13 @@ public class Photo extends BaseTimeEntity {
     public void updateTakenAt(LocalDateTime takenAt) {
         this.takenAt = takenAt;
     }
-    
+
     // 위치 정보 수정 메서드
     public void updateLocation(BigDecimal latitude, BigDecimal longitude) {
         this.latitude = latitude;
         this.longitude = longitude;
     }
-    
+
     // 지역 정보 수정 메서드
     public void updateRegion(String region) {
         this.region = region;

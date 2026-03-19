@@ -15,7 +15,7 @@ import lombok.*;
         @Index(name = "idx_cment_photo", columnList = "photo_id"),
         @Index(name = "idx_cment_writer", columnList = "writer_id")
 })
-public class Cment extends BaseTimeEntity {
+public class Comment extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,7 +35,7 @@ public class Cment extends BaseTimeEntity {
     private String content;
 
     @Builder
-    public Cment(Photo photo, User writer, String content) {
+    public Comment(Photo photo, User writer, String content) {
         this.photo = photo;
         this.writer = writer;
         this.content = content;
