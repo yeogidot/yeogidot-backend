@@ -16,8 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.util.Set;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -53,11 +57,69 @@ public class PhotoService {
         private Double longitude;
     }
 
+    // 허용된 이미지 MIME 타입
+    private static final List<String> ALLOWED_MIME_TYPES = List.of(
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+    );
+
+    // 허용된 파일 확장자
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            ".jpg", ".jpeg", ".png", ".webp"
+    );
+
     /**
      * 여러 사진 업로드 (여행에 연결하지 않고 독립적으로 저장)
      */
     @Transactional
     public List<Photo> uploadPhotos(List<MultipartFile> files, String metadataJson, User user) throws IOException {
+        // 파일 타입 검증 (MIME 타입 + 확장자 + 실제 이미지 내용 검사)
+        for (MultipartFile file : files) {
+            // 1. MIME 타입 검사
+            String contentType = file.getContentType();
+            if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType)) {
+                throw new IllegalArgumentException(
+                        "허용되지 않는 파일 형식입니다: " + contentType + ". JPEG, PNG, WebP 파일만 업로드 가능합니다."
+                );
+            }
+
+            // 2. 확장자 검사 (MIME 타입 조작 방어)
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename != null) {
+                String ext = originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase();
+                if (!ALLOWED_EXTENSIONS.contains(ext)) {
+                    throw new IllegalArgumentException(
+                            "허용되지 않는 파일 확장자입니다: " + ext + ". jpg, jpeg, png, webp만 허용됩니다."
+                    );
+                }
+            }
+
+            // 3. 실제 이미지 파일 내용 검사 (확장자·MIME 타입 모두 속여도 차단)
+            // WebP는 Java 기본 ImageIO 미지원 → null 반환으로 false positive 발생
+            // webp-imageio 등 외부 라이브러리는 Java 21 / Spring Boot 3.x 환경에서
+            // JNI 로딩 실패 및 리눅스 배포 환경 네이티브 바이너리 불일치 위험이 있어 미적용
+            // WebP는 MIME 타입 + 확장자 2단계 검증으로 충분하다고 판단하여 내용 검사 건너뜀
+            String ext = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase()
+                    : "";
+
+            if (!ext.equals(".webp")) {
+                try (InputStream is = file.getInputStream()) {
+                    BufferedImage image = ImageIO.read(is);
+                    if (image == null) {
+                        throw new IllegalArgumentException(
+                                "유효하지 않은 이미지 파일입니다: " + originalFilename + ". 실제 이미지 데이터가 아닙니다."
+                        );
+                    }
+                } catch (IllegalArgumentException e) {
+                    throw e; // 위에서 던진 예외는 그대로 전파
+                } catch (IOException e) {
+                    throw new IllegalArgumentException("이미지 파일을 읽는 중 오류가 발생했습니다: " + originalFilename, e);
+                }
+            }
+        }
+
         // JSON 파싱 시도 - 형식 오류는 명확한 예외로 변환
         List<PhotoMetaDto> metaList;
         try {
@@ -141,7 +203,7 @@ public class PhotoService {
             futures.add(future);
         }
 
-        // ✅ 모든 병렬 작업 완료 대기 후 DB에 순차 저장
+        //  모든 병렬 작업 완료 대기 후 DB에 순차 저장
         // (DB 저장은 @Transactional이 메인 스레드에서 동작하므로 여기서 처리)
         List<Photo> uploadedPhotos = new ArrayList<>(); // GCS 업로드 완료된 사진들 추적
         List<Photo> savedPhotos = new ArrayList<>();

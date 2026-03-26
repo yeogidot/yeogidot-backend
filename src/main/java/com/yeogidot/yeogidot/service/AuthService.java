@@ -42,7 +42,12 @@ public class AuthService {
             throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
         }
 
-        // 3. 비밀번호 일치 체크
+        // 3. 비밀번호 정책 체크 (8자 이상, 영문 + 숫자 필수)
+        if (!request.getPassword().matches("^(?=.*[a-zA-Z])(?=.*[0-9]).{8,}$")) {
+            throw new IllegalArgumentException("비밀번호는 8자 이상, 영문과 숫자를 모두 포함해야 합니다.");
+        }
+
+        // 4. 비밀번호 일치 체크
         if (!request.getPassword().equals(request.getPassword_check())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
