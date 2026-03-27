@@ -76,23 +76,29 @@ public class PhotoService {
     public List<Photo> uploadPhotos(List<MultipartFile> files, String metadataJson, User user) throws IOException {
         // 파일 타입 검증 (MIME 타입 + 확장자 + 실제 이미지 내용 검사)
         for (MultipartFile file : files) {
-            // 1. MIME 타입 검사
-            String contentType = file.getContentType();
-            if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType)) {
+            // 1. 확장자 검사 (1차 관문 - MIME 타입보다 먼저 검사)
+            // 이유: 브라우저가 WebP를 application/octet-stream으로 보내는 경우가 있어
+            //       MIME 타입만 믿으면 정상 파일도 차단됨. 확장자를 먼저 보고 허용 여부 판단.
+            String originalFilename = file.getOriginalFilename();
+            String ext = (originalFilename != null && originalFilename.contains("."))
+                    ? originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase()
+                    : "";
+
+            if (!ALLOWED_EXTENSIONS.contains(ext)) {
                 throw new IllegalArgumentException(
-                        "허용되지 않는 파일 형식입니다: " + contentType + ". JPEG, PNG, WebP 파일만 업로드 가능합니다."
+                        "허용되지 않는 파일 확장자입니다: " + ext + ". jpg, jpeg, png, webp만 허용됩니다."
                 );
             }
 
-            // 2. 확장자 검사 (MIME 타입 조작 방어)
-            String originalFilename = file.getOriginalFilename();
-            if (originalFilename != null) {
-                String ext = originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase();
-                if (!ALLOWED_EXTENSIONS.contains(ext)) {
-                    throw new IllegalArgumentException(
-                            "허용되지 않는 파일 확장자입니다: " + ext + ". jpg, jpeg, png, webp만 허용됩니다."
-                    );
-                }
+            // 2. MIME 타입 검사 (2차 관문)
+            // application/octet-stream은 브라우저가 타입을 특정 못할 때 보내는 기본값 → 확장자로 이미 통과했으면 허용
+            String contentType = file.getContentType();
+            if (contentType != null
+                    && !contentType.equals("application/octet-stream")
+                    && !ALLOWED_MIME_TYPES.contains(contentType)) {
+                throw new IllegalArgumentException(
+                        "허용되지 않는 파일 형식입니다: " + contentType + ". JPEG, PNG, WebP 파일만 업로드 가능합니다."
+                );
             }
 
             // 3. 실제 이미지 파일 내용 검사 (확장자·MIME 타입 모두 속여도 차단)
@@ -100,10 +106,6 @@ public class PhotoService {
             // webp-imageio 등 외부 라이브러리는 Java 21 / Spring Boot 3.x 환경에서
             // JNI 로딩 실패 및 리눅스 배포 환경 네이티브 바이너리 불일치 위험이 있어 미적용
             // WebP는 MIME 타입 + 확장자 2단계 검증으로 충분하다고 판단하여 내용 검사 건너뜀
-            String ext = originalFilename != null && originalFilename.contains(".")
-                    ? originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase()
-                    : "";
-
             if (!ext.equals(".webp")) {
                 try (InputStream is = file.getInputStream()) {
                     BufferedImage image = ImageIO.read(is);
