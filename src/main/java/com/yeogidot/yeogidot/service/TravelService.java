@@ -37,13 +37,20 @@ public class TravelService {
     public List<TravelDto.Info> getMyTravels(User user) {
         List<Travel> travels = travelRepository.findAllByUserOrderByIdDesc(user);
 
+        // N+1 개선: 대표 사진 ID 목록을 모아 IN절로 한 번에 조회
+        List<Long> representativePhotoIds = travels.stream()
+                .map(Travel::getRepresentativePhotoId)
+                .filter(id -> id != null)
+                .collect(Collectors.toList());
+
+        Map<Long, String> photoUrlMap = photoRepository.findAllById(representativePhotoIds)
+                .stream()
+                .collect(Collectors.toMap(Photo::getId, Photo::getFilePath));
+
         return travels.stream().map(travel -> {
-            String photoUrl = null;
-            if (travel.getRepresentativePhotoId() != null) {
-                photoUrl = photoRepository.findById(travel.getRepresentativePhotoId())
-                        .map(Photo::getFilePath)
-                        .orElse(null);
-            }
+            String photoUrl = travel.getRepresentativePhotoId() != null
+                    ? photoUrlMap.get(travel.getRepresentativePhotoId())
+                    : null;
 
             return TravelDto.Info.builder()
                     .travelId(travel.getId())
@@ -681,13 +688,9 @@ public class TravelService {
             log.info("🔄 사진 증분 업데이트 시작 - Travel ID: {}, 요청 사진 개수: {}", travelId, request.getPhotoIds().size());
 
             // 1단계: 기존 사진들 수집
+            // N+1 개선: findByTravelDay() N번 → findByTravelDayIn()으로 IN절 1번 조회
             List<TravelDay> existingDays = travelDayRepository.findByTravelId(travelId);
-            List<Photo> existingPhotos = new ArrayList<>();
-
-            for (TravelDay day : existingDays) {
-                List<Photo> dayPhotos = photoRepository.findByTravelDay(day);
-                existingPhotos.addAll(dayPhotos);
-            }
+            List<Photo> existingPhotos = photoRepository.findByTravelDayIn(existingDays);
 
             Set<Long> existingPhotoIds = existingPhotos.stream()
                     .map(Photo::getId)
