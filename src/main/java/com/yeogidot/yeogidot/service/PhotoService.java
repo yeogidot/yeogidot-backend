@@ -365,13 +365,14 @@ public class PhotoService {
         // 권한 검증
         validatePhotoOwnership(photo, currentUserId);
 
+        // 삭제 전 소속 TravelDay 기억
+        TravelDay travelDay = photo.getTravelDay();
+        Travel travel = (travelDay != null) ? travelDay.getTravel() : null;
+
         // 대표 사진 처리
-        if (photo.getTravelDay() != null) {
-            Travel travel = photo.getTravelDay().getTravel();
-            if (travel.getRepresentativePhotoId() != null &&
-                    travel.getRepresentativePhotoId().equals(photoId)) {
-                travel.updateRepresentativePhoto(null);
-            }
+        if (travelDay != null && travel.getRepresentativePhotoId() != null &&
+                travel.getRepresentativePhotoId().equals(photoId)) {
+            travel.updateRepresentativePhoto(null);
         }
 
         // GCS 파일 삭제
@@ -380,6 +381,21 @@ public class PhotoService {
         // DB 삭제
         photoRepository.delete(photo);
         photoRepository.flush(); // 즉시 DELETE 실행
+
+        // 빈 일차 처리: 사진 삭제 후 해당 일차에 사진이 0장이면 일차 삭제 + dayNumber 재정렬
+        if (travelDay != null) {
+            long remainingCount = photoRepository.countByTravelDayId(travelDay.getId());
+            if (remainingCount == 0) {
+                travelDayRepository.delete(travelDay);
+                travelDayRepository.flush();
+
+                // dayNumber 재정렬
+                List<TravelDay> days = travelDayRepository.findByTravelIdOrderByDayNumber(travel.getId());
+                for (int i = 0; i < days.size(); i++) {
+                    days.get(i).updateDayNumber(i + 1);
+                }
+            }
+        }
 
         return photoId;
     }
