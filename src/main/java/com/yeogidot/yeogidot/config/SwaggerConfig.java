@@ -33,7 +33,7 @@ public class SwaggerConfig {
         prodServer.setDescription("운영 서버");
 
         return new OpenAPI()
-                .servers(List.of(localServer, prodServer))
+                .servers(List.of(prodServer, localServer))
                 .addSecurityItem(securityRequirement)
                 .components(components);
     }
