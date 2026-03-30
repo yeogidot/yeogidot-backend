@@ -14,6 +14,7 @@ public interface TravelDayRepository extends JpaRepository<TravelDay, Long> {
     // Service에서 호출하는 커스텀 메소드 정의
     Optional<TravelDay> findByTravelIdAndDayNumber(Long travelId, Integer dayNumber);
     List<TravelDay> findByTravelId(Long travelId); // 추가
+    List<TravelDay> findByTravelIdOrderByDayNumber(Long travelId);
     
     // 사진까지 함께 로드
     @Query("SELECT td FROM TravelDay td LEFT JOIN FETCH td.photos WHERE td.id = :dayId")

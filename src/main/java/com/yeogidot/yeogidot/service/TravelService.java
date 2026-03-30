@@ -304,8 +304,10 @@ public class TravelService {
 
         log.info("🗑️ TravelDay 삭제 시작 - Day ID: {}, 사진 개수: {}", dayId, photos.size());
 
-        // 일차 삭제 전에 Travel 참조 저장
+        // 일차 삭제 전에 Travel 참조 및 삭제할 dayNumber, travelId 저장
         Travel travel = day.getTravel();
+        int deletedDayNumber = day.getDayNumber();
+        Long travelId = travel.getId();
 
         // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)
         for (Photo photo : photos) {
@@ -325,6 +327,16 @@ public class TravelService {
 
         // 영속성 컨텍스트에서 travel 컬렉션 갱신 (삭제된 day 제거)
         travel.getTravelDays().remove(day);
+
+        // 남은 일차들의 dayNumber 재정렬 (삭제된 일차 이후 번호들을 -1씩 당김)
+        List<TravelDay> remainingDays = travelDayRepository.findByTravelId(travelId);
+        remainingDays.stream()
+                .filter(d -> d.getDayNumber() > deletedDayNumber)
+                .forEach(d -> {
+                    d.updateDayNumber(d.getDayNumber() - 1);
+                    travelDayRepository.save(d);
+                    log.info("🔄 일차 번호 재정렬: {} → {}", d.getDayNumber() + 1, d.getDayNumber());
+                });
 
         // 일차 삭제 후 여행의 startDate/endDate 갱신
         updateTravelDates(travel);

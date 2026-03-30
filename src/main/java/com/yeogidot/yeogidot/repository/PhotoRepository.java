@@ -17,5 +17,6 @@ public interface PhotoRepository extends JpaRepository<Photo, Long> {
     List<Photo> findByTravelDay(TravelDay travelDay);
     List<Photo> findByTravelDayIn(List<TravelDay> travelDays);
     List<Photo> findByUserId(Long userId);
+    long countByTravelDayId(Long travelDayId);
 
 }
