@@ -73,9 +73,10 @@ public class TravelService {
         }
 
         // 2단계: 사진들의 정보 수집
-        List<Photo> photos = request.getPhotoIds().stream()
-                .map(photoId -> photoRepository.findById(photoId).orElse(null))
-                .filter(photo -> photo != null && photo.getTakenAt() != null)
+        // N+1 개선: findById() N번 → findAllById()로 IN절 1번 조회
+        List<Photo> photos = photoRepository.findAllById(request.getPhotoIds())
+                .stream()
+                .filter(photo -> photo.getTakenAt() != null)
                 .collect(Collectors.toList());
 
         if (photos.isEmpty()) {
@@ -154,16 +155,14 @@ public class TravelService {
         }
 
         // 8단계: 사진을 해당 날짜의 TravelDay에 배치하고 dayRegion 설정
-        for (Long photoId : request.getPhotoIds()) {
-            Photo photo = photoRepository.findById(photoId).orElse(null);
-            if (photo != null && photo.getTakenAt() != null) {
-                LocalDate photoDate = photo.getTakenAt().toLocalDate();
-                TravelDay matchingDay = dayMap.get(photoDate);
+        // 이미 2단계에서 조회한 photos 리스트 재사용 (추가 DB 조회 없음)
+        for (Photo photo : photos) {
+            LocalDate photoDate = photo.getTakenAt().toLocalDate();
+            TravelDay matchingDay = dayMap.get(photoDate);
 
-                if (matchingDay != null) {
-                    photo.setTravelDay(matchingDay);
-                    photoRepository.save(photo);
-                }
+            if (matchingDay != null) {
+                photo.setTravelDay(matchingDay);
+                photoRepository.save(photo);
             }
         }
 

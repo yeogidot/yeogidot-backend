@@ -5,10 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
@@ -121,6 +123,12 @@ public class GeoCodingService {
                     return new RegionInfo(region1depth, region2depth);
                 }
             }
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                log.error("🚨 카카오 API 일일 쿼터 초과. 오늘 더 이상 역지오코딩 불가.");
+                throw new RuntimeException("카카오 API 일일 사용량을 초과했습니다. 잠시 후 다시 시도해주세요.");
+            }
+            log.error("❌ 역지오코딩 실패 (HTTP {}): ({}, {}) - {}", e.getStatusCode(), latitude, longitude, e.getMessage());
         } catch (Exception e) {
             log.error("❌ 역지오코딩 실패: ({}, {}) - {}", latitude, longitude, e.getMessage());
         }
