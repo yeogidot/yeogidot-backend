@@ -81,7 +81,8 @@ public class SecurityConfig {
                 "http://localhost:*",         // localhost 모든 포트 (5173, 3000 등)
                 "http://127.0.0.1:*",         // 127.0.0.1 모든 포트
                 "https://yeogidot.jihongeek.com",
-                "https://yeogidot-frontend.jihongeek.workers.dev"
+                "https://yeogidot-frontend.jihongeek.workers.dev",
+                "http://10.0.2.2:3000"
         ));
 
         // 모든 HTTP 메서드 허용 (OPTIONS 포함!)
