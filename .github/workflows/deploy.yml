@@ -71,7 +71,8 @@ jobs:
             cd ~/app
           
             # 애플리케이션 실행
-            nohup java -Xms512m -Xmx2g -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &
+            nohup env GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/app/gcs-key.json \
+            java -Xms512m -Xmx2g -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &        
           
             # 프로세스 확인
             sleep 3
