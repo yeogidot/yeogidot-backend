@@ -1,14 +1,10 @@
-name: Deploy to GCP
+name: Deploy to Oracle
 
 on:
   push:
     branches:
       - main
       - develop
-      - feature/cors-fix
-      - feature/improve-error-response
-      - feature/add-photo-region
-      - feature/password-policy
 
 jobs:
   deploy:
@@ -30,13 +26,13 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean build -x test
 
-      # ---------------- SSH 설정 (RSA + PEM 전용) ----------------
+      # ---------------- SSH 설정 ----------------
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           printf "%s\n" "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 34.47.109.94 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 134.185.96.154 >> ~/.ssh/known_hosts
 
       # ---------------- 키 파일 확인 ----------------
       - name: Verify SSH Key
@@ -56,15 +52,15 @@ jobs:
           chmod 600 gcs-key.json
 
       # ---------------- 배포 ----------------
-      - name: Deploy to GCP
+      - name: Deploy to Oracle
         run: |
           # JAR 파일 복사
-          scp -i ~/.ssh/id_rsa build/libs/yeogidot-0.0.1-SNAPSHOT.jar wjdckd842080@34.47.109.94:~/
+          scp -i ~/.ssh/id_rsa build/libs/yeogidot-0.0.1-SNAPSHOT.jar ubuntu@134.185.96.154:~/
           
           # GCS 키 파일 복사
-          scp -i ~/.ssh/id_rsa gcs-key.json wjdckd842080@34.47.109.94:~/app/
+          scp -i ~/.ssh/id_rsa gcs-key.json ubuntu@134.185.96.154:~/app/
 
-          ssh -i ~/.ssh/id_rsa wjdckd842080@34.47.109.94 << 'EOF'
+          ssh -i ~/.ssh/id_rsa ubuntu@134.185.96.154 << 'EOF'
             # 기존 프로세스 종료
             pkill -f yeogidot.jar || true
           
@@ -74,7 +70,7 @@ jobs:
             # app 디렉토리로 이동 후 실행
             cd ~/app
           
-            # 애플리케이션 실행 (e2-standard-2 8GB 기준: 힙 최소 512MB, 최대 2GB)
+            # 애플리케이션 실행
             nohup java -Xms512m -Xmx2g -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &
           
             # 프로세스 확인

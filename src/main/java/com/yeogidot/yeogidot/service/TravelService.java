@@ -252,7 +252,7 @@ public class TravelService {
 
         // 권한 검증
         if (!travel.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("삭제 권한이 없습니다.");
+            throw new SecurityException("삭제 권한이 없습니다.");
         }
 
         // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)

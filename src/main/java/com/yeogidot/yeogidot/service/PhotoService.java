@@ -370,7 +370,7 @@ public class PhotoService {
         Travel travel = (travelDay != null) ? travelDay.getTravel() : null;
 
         // 대표 사진 처리
-        if (travelDay != null && travel.getRepresentativePhotoId() != null &&
+        if (travelDay != null && travel != null && travel.getRepresentativePhotoId() != null &&
                 travel.getRepresentativePhotoId().equals(photoId)) {
             travel.updateRepresentativePhoto(null);
         }
@@ -489,9 +489,13 @@ public class PhotoService {
             BigDecimal lng = BigDecimal.valueOf(request.getLongitude());
             photo.updateLocation(lat, lng);
 
-            // 위치 변경 시 지역 정보도 업데이트
-            String newRegion = geoCodingService.getDistrictFromCoordinates(lat, lng);
-            photo.updateRegion(newRegion);
+            // 지역 정보 업데이트는 실패해도 나머지 수정은 정상 처리
+            try {
+                String newRegion = geoCodingService.getDistrictFromCoordinates(lat, lng);
+                photo.updateRegion(newRegion);
+            } catch (Exception e) {
+                log.warn("⚠️ 위치 수정 중 지역 정보 업데이트 실패 (위치 수정은 정상 처리): {}", e.getMessage());
+            }
         }
     }
 }
