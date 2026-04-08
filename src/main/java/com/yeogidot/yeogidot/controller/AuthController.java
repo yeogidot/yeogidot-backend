@@ -154,7 +154,12 @@ public class AuthController {
             )
     })
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout() {
+    public ResponseEntity<Map<String, String>> logout(
+            @RequestHeader(value = "Authorization", required = false) String bearerToken) {
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            String token = bearerToken.substring(7);
+            authService.logout(token);
+        }
         return ResponseEntity.ok(Map.of("message", "로그아웃되었습니다."));
     }
 }

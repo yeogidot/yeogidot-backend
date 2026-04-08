@@ -15,6 +15,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final com.yeogidot.yeogidot.service.AuthService authService;
 
     /**
      *  JWT 검사를 하지 않을 경로 지정
@@ -45,13 +46,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 3. 토큰이 유효하면 인증 처리
+        // 3. 블랙리스트 토큰(로그아웃된 토큰) 차단
+        if (token != null && authService.isBlacklisted(token)) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "이미 로그아웃된 토큰입니다.");
+            return;
+        }
+
+        // 4. 토큰이 유효하면 인증 처리
         if (token != null) {
             Authentication auth = jwtTokenProvider.getAuthentication(token);
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
 
-        // 4. 다음 필터로 진행
+        // 5. 다음 필터로 진행
         filterChain.doFilter(request, response);
     }
 

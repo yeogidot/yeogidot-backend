@@ -420,11 +420,18 @@ public class TravelService {
             throw new SecurityException("권한이 없습니다.");
         }
 
+        // N+1 개선: findById() N번 → findAllById()로 IN절 1번 조회
+        List<Photo> photos = photoRepository.findAllById(photoIds);
+        Map<Long, Photo> photoMap = photos.stream()
+                .collect(Collectors.toMap(Photo::getId, p -> p));
+
         List<Photo> addedPhotos = new ArrayList<>();
 
         for (Long photoId : photoIds) {
-            Photo photo = photoRepository.findById(photoId)
-                    .orElseThrow(() -> new IllegalArgumentException("ID " + photoId + " 사진을 찾을 수 없습니다."));
+            Photo photo = photoMap.get(photoId);
+            if (photo == null) {
+                throw new IllegalArgumentException("ID " + photoId + " 사진을 찾을 수 없습니다.");
+            }
 
             // 사진 소유자 확인
             if (!photo.getUser().getId().equals(user.getId())) {
@@ -724,9 +731,13 @@ public class TravelService {
             log.info("✅ 유지: {}, 🗑️ 삭제: {}, ➕ 추가: {}", photosToKeep, photosToDelete, photosToAdd);
 
             // 3단계: 삭제할 사진 처리 (GCS + DB)
+            // N+1 개선: findById() N번 → 이미 조회한 existingPhotos에서 Map으로 찾기 (DB 조회 0번)
+            Map<Long, Photo> existingPhotoMap = existingPhotos.stream()
+                    .collect(Collectors.toMap(Photo::getId, p -> p));
+
             if (!photosToDelete.isEmpty()) {
                 for (Long photoId : photosToDelete) {
-                    Photo photo = photoRepository.findById(photoId).orElse(null);
+                    Photo photo = existingPhotoMap.get(photoId);
                     if (photo != null) {
                         try {
                             // GCS 파일 삭제

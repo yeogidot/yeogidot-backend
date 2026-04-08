@@ -5,6 +5,8 @@ package com.yeogidot.yeogidot.service;
 import com.yeogidot.yeogidot.dto.LoginRequest;
 import com.yeogidot.yeogidot.dto.SignupRequest;
 import com.yeogidot.yeogidot.exception.TooManyRequestsException;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.concurrent.TimeUnit;
 
 // Entity (DB 테이블)
 import com.yeogidot.yeogidot.entity.User;
@@ -29,6 +31,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder; // 비밀번호 암호화 도구
     private final JwtTokenProvider jwtTokenProvider; // JWT 토큰 생성 도구
     private final LoginAttemptService loginAttemptService; // 로그인 시도 제한
+    private final StringRedisTemplate redisTemplate; // Redis 블랙리스트용
+
+    private static final String BLACKLIST_PREFIX = "blacklist:"; // Redis 키 prefix
 
     @Transactional
     public void signup(SignupRequest request) {
@@ -59,6 +64,24 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
+    }
+
+    // 로그아웃 - 토큰을 Redis 블랙리스트에 등록
+    public void logout(String token) {
+        long expiration = jwtTokenProvider.getExpiration(token); // 토큰 남은 만료 시간(ms)
+        if (expiration > 0) {
+            redisTemplate.opsForValue().set(
+                    BLACKLIST_PREFIX + token,
+                    "logout",
+                    expiration,
+                    TimeUnit.MILLISECONDS
+            );
+        }
+    }
+
+    // 블랙리스트 여부 확인
+    public boolean isBlacklisted(String token) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token));
     }
 
     //  로그인 기능 추가
