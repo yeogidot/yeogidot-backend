@@ -4,10 +4,11 @@ import com.yeogidot.yeogidot.exception.JwtAccessDeniedHandler;
 import com.yeogidot.yeogidot.exception.JwtAuthenticationEntryPoint;
 import com.yeogidot.yeogidot.security.JwtAuthenticationFilter;
 import com.yeogidot.yeogidot.security.JwtTokenProvider;
-import com.yeogidot.yeogidot.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -30,7 +31,7 @@ public class SecurityConfig {
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
-    private final AuthService authService;
+    private final StringRedisTemplate redisTemplate;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -66,7 +67,7 @@ public class SecurityConfig {
                 )
                 // JWT 필터 등록
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtTokenProvider, authService),
+                        new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate),
                         UsernamePasswordAuthenticationFilter.class
                 );
 

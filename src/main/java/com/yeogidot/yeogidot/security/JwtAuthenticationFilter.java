@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -15,7 +16,9 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
-    private final com.yeogidot.yeogidot.service.AuthService authService;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String BLACKLIST_PREFIX = "blacklist:";
 
     /**
      *  JWT 검사를 하지 않을 경로 지정
@@ -47,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // 3. 블랙리스트 토큰(로그아웃된 토큰) 차단
-        if (token != null && authService.isBlacklisted(token)) {
+        if (token != null && Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token))) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "이미 로그아웃된 토큰입니다.");
             return;
         }
