@@ -243,6 +243,9 @@ public class PhotoService {
      * 타임존 정보가 포함된 날짜 문자열을 LocalDateTime으로 변환
      */
     private LocalDateTime parseTakenAt(String takenAtStr) {
+        if (takenAtStr == null) {
+            throw new IllegalArgumentException("촬영 날짜가 없는 사진은 업로드할 수 없습니다.");
+        }
         try {
             // 타임존 정보가 있는 경우 (예: 2024-08-02T22:38:06+09:00)
             if (takenAtStr.contains("+") || takenAtStr.endsWith("Z")) {
