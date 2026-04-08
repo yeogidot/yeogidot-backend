@@ -84,6 +84,10 @@ public class GeoCodingService {
      * @param longitude 경도
      * @return RegionInfo (시/도, 구/군 포함)
      */
+    @Cacheable(
+            value = "geocoding",
+            key = "'detail:' + #latitude.setScale(4, T(java.math.RoundingMode).HALF_UP).toString() + ',' + #longitude.setScale(4, T(java.math.RoundingMode).HALF_UP).toString()"
+    )
     public RegionInfo getDetailedRegion(BigDecimal latitude, BigDecimal longitude) {
         if (latitude == null || longitude == null) {
             return null;
