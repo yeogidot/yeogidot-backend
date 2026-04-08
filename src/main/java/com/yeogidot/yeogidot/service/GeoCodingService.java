@@ -143,7 +143,7 @@ public class GeoCodingService {
     /**
      * 지역 정보를 담는 내부 클래스
      */
-    public static class RegionInfo {
+    public static class RegionInfo implements java.io.Serializable {
         private final String region1depth; // 시/도
         private final String region2depth; // 구/군
 
