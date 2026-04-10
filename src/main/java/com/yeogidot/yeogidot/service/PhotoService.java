@@ -165,7 +165,7 @@ public class PhotoService {
                     // 1. GCS 업로드 (여러 사진 동시 실행)
                     long gcsStart = System.currentTimeMillis();
                     String gcsUrl = gcsService.uploadFile(file);
-                    log.info("[{}번] GCS 업로드 소요시간: {}ms", index + 1, System.currentTimeMillis() - gcsStart);
+                    log.info("[{}번] R2 업로드 소요시간: {}ms", index + 1, System.currentTimeMillis() - gcsStart);
 
                     // 2. 좌표 처리
                     BigDecimal lat = meta.getLatitude() != null

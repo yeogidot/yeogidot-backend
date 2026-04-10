@@ -18,17 +18,7 @@ repositories {
 	mavenCentral()
 }
 
-/*
- *  GCP 의존성은 BOM으로 통합 관리
- * - Spring Boot 3.5.x
- * - Spring Framework 6.2.x
- * 와 완전 호환
- */
-dependencyManagement {
-	imports {
-		mavenBom "com.google.cloud:spring-cloud-gcp-dependencies:5.8.0"
-	}
-}
+/* GCP BOM 제거 (R2 마이그레이션으로 불필요) */
 
 dependencies {
 	/* ───────────── Spring Boot ───────────── */
@@ -40,10 +30,9 @@ dependencies {
 	/* ───────────── Swagger (Spring Boot 3 전용) ───────────── */
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.7'
 
-	/* ───────────── GCP Storage ─────────────
-	   버전 직접 명시하지 않음 (BOM이 관리)
-	*/
-	implementation 'com.google.cloud:spring-cloud-gcp-starter-storage'
+	/* ───────────── AWS S3 SDK (Cloudflare R2 호환) ───────────── */
+	implementation platform('software.amazon.awssdk:bom:2.25.0')
+	implementation 'software.amazon.awssdk:s3'
 
 	/* ───────────── JWT ───────────── */
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'

@@ -1,45 +1,51 @@
 package com.yeogidot.yeogidot.config;
 
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
 import org.springframework.web.client.RestTemplate;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
 
-import java.io.IOException;
+import java.net.URI;
 
 /**
- * Google Cloud Storage 설정
+ * Cloudflare R2 Storage 설정 (S3 호환 API 사용)
  */
 @Slf4j
 @Configuration
 public class GcsConfig {
 
-    @Value("${spring.cloud.gcp.project-id}")
-    private String projectId;
-    
-    @Value("${spring.cloud.gcp.credentials.location}")
-    private Resource credentialsLocation;
+    @Value("${r2.access-key}")
+    private String accessKey;
+
+    @Value("${r2.secret-key}")
+    private String secretKey;
+
+    @Value("${r2.account-id}")
+    private String accountId;
 
     @Bean
-    public Storage storage() throws IOException {
-        log.info("🔧 GCS Storage Bean 초기화 시작");
-        log.info("📁 Credentials 위치: {}", credentialsLocation);
-        log.info("🆔 Project ID: {}", projectId);
-        
-        Storage storage = StorageOptions.newBuilder()
-                .setProjectId(projectId)
-                .setCredentials(GoogleCredentials.fromStream(
-                        credentialsLocation.getInputStream()))
-                .build()
-                .getService();
-        
-        log.info("✅ GCS Storage Bean 초기화 완료");
-        return storage;
+    public S3Client s3Client() {
+        log.info("🔧 R2 S3Client 초기화 시작");
+
+        String endpoint = String.format("https://%s.r2.cloudflarestorage.com", accountId);
+
+        S3Client client = S3Client.builder()
+                .endpointOverride(URI.create(endpoint))
+                .credentialsProvider(
+                        StaticCredentialsProvider.create(
+                                AwsBasicCredentials.create(accessKey, secretKey)
+                        )
+                )
+                .region(Region.of("auto"))
+                .build();
+
+        log.info("✅ R2 S3Client 초기화 완료 - endpoint: {}", endpoint);
+        return client;
     }
 
     @Bean

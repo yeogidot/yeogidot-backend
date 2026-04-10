@@ -11,9 +11,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 @EnableJpaAuditing
 @EnableCaching
 @SpringBootApplication(exclude = {
-		SecurityAutoConfiguration.class,
-		com.google.cloud.spring.autoconfigure.storage.GcpStorageAutoConfiguration.class,
-		com.google.cloud.spring.autoconfigure.core.GcpContextAutoConfiguration.class
+		SecurityAutoConfiguration.class
 })
 public class YeogidotApplication {
 
