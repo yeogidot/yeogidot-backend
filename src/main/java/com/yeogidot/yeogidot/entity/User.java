@@ -30,4 +30,9 @@ public class User extends BaseTimeEntity {
         user.password = password;
         return user;
     }
+
+    // 비밀번호 변경 메서드
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
