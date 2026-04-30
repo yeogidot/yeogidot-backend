@@ -21,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Map;
 
@@ -50,8 +51,11 @@ public class AuthController {
                                     """)))
     })
     @PostMapping("/signup")
-    public ResponseEntity<String> signup(@RequestBody SignupRequest request) {
-        authService.signup(request);
+    public ResponseEntity<String> signup(
+            @RequestBody SignupRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = extractClientIp(httpRequest);
+        authService.signup(request, clientIp);
         return ResponseEntity.status(HttpStatus.CREATED).body("회원가입 성공");
     }
 
@@ -165,5 +169,22 @@ public class AuthController {
         String email = authentication.getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new UnauthenticatedException("인증이 필요합니다."));
+    }
+    /**
+     * 클라이언트 실제 IP 추출
+     * - 프록시/로드밸런서 뒤에 있을 때 X-Forwarded-For 헤더 우선
+     * - 없으면 RemoteAddr
+     */
+    private String extractClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+            // X-Forwarded-For는 콤마 구분된 리스트, 첫 번째가 실제 클라이언트
+            return xForwardedFor.split(",")[0].trim();
+        }
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isBlank()) {
+            return xRealIp;
+        }
+        return request.getRemoteAddr();
     }
 }

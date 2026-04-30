@@ -43,9 +43,14 @@ public class AuthService {
     private final GcsService gcsService;
 
     private static final String BLACKLIST_PREFIX = "blacklist:";
+    private static final String SIGNUP_IP_PREFIX = "signup_ip:";
+    private static final int SIGNUP_LIMIT_PER_HOUR = 3;
 
     @Transactional
-    public void signup(SignupRequest request) {
+    public void signup(SignupRequest request, String clientIp) {
+        // IP별 회원가입 횟수 제한 (1시간 3회) — 봇 회원가입 방지
+        checkSignupRateLimit(clientIp);
+
         if (!Boolean.TRUE.equals(request.getPrivacy_policy_agreed())) {
             throw new IllegalArgumentException("약관에 동의해야 합니다.");
         }
@@ -65,6 +70,7 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
+
     }
 
     /**
@@ -189,5 +195,31 @@ public class AuthService {
             logout(token);
             log.info("탈퇴 토큰 블랙리스트 등록 완료 - userId: {}", userId);
         }
+    }
+    /**
+     * IP별 회원가입 시도 제한 (1시간 3회)
+     * - Redis에 IP를 키로 카운터 저장, TTL 1시간
+     * - 한도 초과 시 TooManyRequestsException
+     */
+    private void checkSignupRateLimit(String clientIp) {
+        if (clientIp == null || clientIp.isBlank()) {
+            log.warn("회원가입 요청에 clientIp 누락 — rate limit 건너뜀");
+            return;
+        }
+
+        String key = SIGNUP_IP_PREFIX + clientIp;
+        Long count = redisTemplate.opsForValue().increment(key);
+
+        // 첫 번째 요청일 때만 TTL 설정
+        if (count == 1) {
+            redisTemplate.expire(key, 1, TimeUnit.HOURS);
+        }
+
+        if (count > SIGNUP_LIMIT_PER_HOUR) {
+            log.warn("회원가입 횟수 초과 차단 - IP: {}, 시도 수: {}", clientIp, count);
+            throw new TooManyRequestsException("회원가입 시도가 너무 많습니다. 1시간 후 다시 시도해주세요.");
+        }
+
+        log.info("회원가입 시도 - IP: {}, 시도 수: {}/{}", clientIp, count, SIGNUP_LIMIT_PER_HOUR);
     }
 }
