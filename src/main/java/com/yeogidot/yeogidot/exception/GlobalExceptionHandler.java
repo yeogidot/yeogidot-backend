@@ -22,8 +22,13 @@ import java.util.Map;
 /**
  * 전역 예외 처리기
  * Spring Security 예외를 포함한 모든 예외를 일관된 형식으로 처리
- * 
+ *
  * 우선순위: 구체적 예외 → 일반적 예외 순서로 처리
+ *
+ * [보안] 500 계열 예외의 detail 필드 제거
+ * - e.getMessage()를 그대로 노출하면 DB 스키마, 클래스 구조, R2 버킷명 등 내부 정보가 유출될 수 있음
+ * - 비즈니스 예외(400/401/403 등)는 의도적으로 메시지를 보여주는 용도이므로 그대로 유지
+ * - 500 계열 fallback 핸들러에서만 detail 제거, 상세 내용은 서버 로그에만 기록
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -43,13 +48,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<Map<String, Object>> handleAuthenticationException(AuthenticationException e) {
         log.error("인증 실패: {}", e.getMessage());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 401);
         response.put("error", "UNAUTHORIZED");
         response.put("message", "인증이 필요합니다. JWT 토큰을 확인해주세요.");
-        response.put("detail", e.getMessage());
-        
+        // detail 제거 - 내부 인증 오류 메시지 노출 방지
+
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
@@ -60,13 +65,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDeniedException(AccessDeniedException e) {
         log.error("권한 없음: {}", e.getMessage());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 403);
         response.put("error", "FORBIDDEN");
         response.put("message", "해당 리소스에 접근할 권한이 없습니다.");
-        response.put("detail", e.getMessage());
-        
+        // detail 제거 - 내부 권한 오류 메시지 노출 방지
+
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
@@ -94,12 +99,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<Map<String, Object>> handleSecurityException(SecurityException e) {
         log.error("보안 예외: {}", e.getMessage());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 403);
         response.put("error", "SECURITY_VIOLATION");
         response.put("message", e.getMessage());
-        
+
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
@@ -114,22 +119,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<Map<String, Object>> handleMissingServletRequestPartException(MissingServletRequestPartException e) {
         log.error("필수 파일 누락: {}", e.getMessage());
-        
+
         String partName = e.getRequestPartName();
         String message = "필수 파일이 누락되었습니다.";
-        
+
         if ("files".equals(partName)) {
             message = "업로드할 사진 파일(files)이 필요합니다.";
         } else if ("metadata".equals(partName)) {
             message = "사진 메타데이터(metadata)가 필요합니다.";
         }
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 400);
         response.put("error", "MISSING_REQUIRED_PART");
         response.put("message", message);
         response.put("detail", String.format("필수 파라미터 '%s'가 누락되었습니다.", partName));
-        
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
@@ -140,13 +145,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Map<String, Object>> handleMissingServletRequestParameterException(MissingServletRequestParameterException e) {
         log.error("필수 파라미터 누락: {}", e.getMessage());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 400);
         response.put("error", "MISSING_PARAMETER");
         response.put("message", String.format("필수 파라미터 '%s'가 누락되었습니다.", e.getParameterName()));
-        response.put("detail", e.getMessage());
-        
+        // detail 제거 - 내부 파라미터 정보 노출 방지
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
@@ -158,13 +163,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
         log.error("요청 바디 형식 오류: {}", e.getMessage());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 400);
         response.put("error", "INVALID_REQUEST_BODY");
         response.put("message", "요청 데이터 형식이 올바르지 않습니다.");
         response.put("detail", "JSON 형식을 확인해주세요.");
-        
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
@@ -175,15 +180,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<Map<String, Object>> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
         log.error("파라미터 타입 불일치: {}", e.getMessage());
-        
-        String requiredType = e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "unknown";
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 400);
         response.put("error", "INVALID_PARAMETER_TYPE");
         response.put("message", String.format("파라미터 '%s'의 값이 올바르지 않습니다.", e.getName()));
-        response.put("detail", String.format("'%s' 타입이 필요합니다.", requiredType));
-        
+        response.put("detail", "올바른 값을 입력해주세요.");
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
@@ -194,18 +197,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         log.error("검증 실패: {}", e.getMessage());
-        
+
         String firstError = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .orElse("입력값이 올바르지 않습니다.");
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 400);
         response.put("error", "VALIDATION_FAILED");
         response.put("message", firstError);
         response.put("detail", "입력값을 확인해주세요.");
-        
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
@@ -234,12 +237,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException e) {
         log.error("잘못된 요청: {}", e.getMessage());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 400);
         response.put("error", "BAD_REQUEST");
         response.put("message", e.getMessage());
-        
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
@@ -255,12 +258,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalStateException(IllegalStateException e) {
         log.error("상태 오류: {}", e.getMessage());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 404);
         response.put("error", "NOT_FOUND");
         response.put("message", e.getMessage());
-        
+
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
@@ -274,13 +277,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, Object>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
         log.error("파일 크기 초과: {}", e.getMessage());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 413);
         response.put("error", "FILE_TOO_LARGE");
         response.put("message", "업로드 파일 크기가 제한을 초과했습니다.");
         response.put("detail", "최대 파일 크기는 50MB입니다.");
-        
+
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
     }
 
@@ -292,13 +295,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IOException.class)
     public ResponseEntity<Map<String, Object>> handleIOException(IOException e) {
         log.error("IO 오류: {}", e.getMessage(), e);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 500);
         response.put("error", "IO_ERROR");
         response.put("message", "파일 처리 중 오류가 발생했습니다.");
-        response.put("detail", e.getMessage());
-        
+        // detail 제거 - IO 오류 내부 정보(파일 경로, R2 버킷 등) 노출 방지
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 
@@ -314,13 +317,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException e) {
         log.error("런타임 예외: {}", e.getMessage(), e);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 500);
         response.put("error", "RUNTIME_ERROR");
         response.put("message", "서버 처리 중 오류가 발생했습니다.");
-        response.put("detail", e.getMessage());
-        
+        // detail 제거 - 런타임 예외 내부 정보(클래스 구조, DB 스키마 등) 노출 방지
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 
@@ -331,13 +334,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleException(Exception e) {
         log.error("예상치 못한 예외: {}", e.getMessage(), e);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 500);
         response.put("error", "INTERNAL_SERVER_ERROR");
         response.put("message", "예상치 못한 오류가 발생했습니다.");
-        response.put("detail", e.getMessage());
-        
+        // detail 제거 - 내부 예외 메시지(DB 스키마, 클래스 정보 등) 노출 방지
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 }
