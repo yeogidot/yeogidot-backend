@@ -2,6 +2,7 @@ package com.yeogidot.yeogidot.config;
 
 import com.yeogidot.yeogidot.exception.JwtAccessDeniedHandler;
 import com.yeogidot.yeogidot.exception.JwtAuthenticationEntryPoint;
+import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.security.JwtAuthenticationFilter;
 import com.yeogidot.yeogidot.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
     private final StringRedisTemplate redisTemplate;
+    private final UserRepository userRepository;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -70,7 +72,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate),
+                        new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate, userRepository),
                         UsernamePasswordAuthenticationFilter.class
                 );
 

@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 
@@ -80,5 +81,13 @@ public class JwtTokenProvider {
                 .parseClaimsJws(token)
                 .getBody().getExpiration();
         return expiration.getTime() - System.currentTimeMillis();
+    }
+
+    // 토큰 발급 시각(iat) 반환
+    public Instant getIssuedAt(String token) {
+        Date issuedAt = Jwts.parserBuilder().setSigningKey(key).build()
+                .parseClaimsJws(token)
+                .getBody().getIssuedAt();
+        return issuedAt.toInstant();
     }
 }

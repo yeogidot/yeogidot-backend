@@ -8,16 +8,22 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.yeogidot.yeogidot.entity.User;
+import com.yeogidot.yeogidot.repository.UserRepository;
+
 import java.io.IOException;
+import java.time.Instant;
 
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
+    private final UserRepository userRepository;
 
     private static final String BLACKLIST_PREFIX = "blacklist:";
 
@@ -62,7 +68,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 4. 토큰이 유효하면 인증 처리
+        // 4. passwordChangedAt 검증 — 비밀번호 변경 이전에 발급된 토큰 거부
+        //    (모든 기기에서 로그아웃 효과)
+        if (token != null) {
+            try {
+                String email = jwtTokenProvider.getEmail(token);
+                User user = userRepository.findByEmail(email).orElse(null);
+                if (user != null) {
+                    Instant issuedAt = jwtTokenProvider.getIssuedAt(token);
+                    if (issuedAt.isBefore(user.getPasswordChangedAt())) {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "비밀번호가 변경되어 재로그인이 필요합니다.");
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+                return;
+            }
+        }
+
+        // 5. 토큰이 유효하면 인증 처리
         //    회원탈퇴 후 만료되지 않은 토큰으로 요청 시 DB에 유저가 없어
         //    UsernameNotFoundException 발생 → 필터 레이어라 @RestControllerAdvice 미적용
         //    직접 catch해서 401 반환
@@ -76,7 +101,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        // 5. 다음 필터로 진행
+        // 6. 다음 필터로 진행
         filterChain.doFilter(request, response);
     }
 

@@ -134,7 +134,7 @@ public class AuthService {
         }
 
         user.updatePassword(passwordEncoder.encode(request.getNew_password()));
-        log.info("비밀번호 변경 완료 - userId: {}", userId);
+        log.info("비밀번호 변경 완료 (passwordChangedAt 갱신됨, 기존 토큰 전체 무효화) - userId: {}", userId);
     }
 
     /**
