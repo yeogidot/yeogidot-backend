@@ -54,7 +54,9 @@ public class AuthController {
     public ResponseEntity<String> signup(
             @RequestBody SignupRequest request,
             HttpServletRequest httpRequest) {
-        String clientIp = extractClientIp(httpRequest);
+        // Tomcat의 RemoteIpValve가 X-Forwarded-For를 검증해 진짜 클라이언트 IP로 세팅함
+        // (server.forward-headers-strategy=native 설정 필요)
+        String clientIp = httpRequest.getRemoteAddr();
         authService.signup(request, clientIp);
         return ResponseEntity.status(HttpStatus.CREATED).body("회원가입 성공");
     }
@@ -169,22 +171,5 @@ public class AuthController {
         String email = authentication.getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new UnauthenticatedException("인증이 필요합니다."));
-    }
-    /**
-     * 클라이언트 실제 IP 추출
-     * - 프록시/로드밸런서 뒤에 있을 때 X-Forwarded-For 헤더 우선
-     * - 없으면 RemoteAddr
-     */
-    private String extractClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            // X-Forwarded-For는 콤마 구분된 리스트, 첫 번째가 실제 클라이언트
-            return xForwardedFor.split(",")[0].trim();
-        }
-        String xRealIp = request.getHeader("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isBlank()) {
-            return xRealIp;
-        }
-        return request.getRemoteAddr();
     }
 }
