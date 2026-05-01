@@ -75,8 +75,11 @@ public class AuthController {
                                     """)))
     })
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody LoginRequest request) {
-        String token = authService.login(request);
+    public ResponseEntity<Map<String, String>> login(
+            @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = httpRequest.getRemoteAddr();
+        String token = authService.login(request, clientIp);
         return ResponseEntity.ok(Map.of(
                 "token_type", "Bearer",
                 "access_token", token

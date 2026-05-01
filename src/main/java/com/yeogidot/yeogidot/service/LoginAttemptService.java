@@ -28,8 +28,8 @@ public class LoginAttemptService {
      * - 실패 횟수 증가
      * - 5회 초과 시 5분간 잠금
      */
-    public void loginFailed(String email) {
-        String key = KEY_PREFIX + email;
+    public void loginFailed(String email, String ip) {
+        String key = KEY_PREFIX + email + ":" + ip;
         Long attempts = redisTemplate.opsForValue().increment(key);
 
         if (attempts == 1) {
@@ -37,24 +37,24 @@ public class LoginAttemptService {
             redisTemplate.expire(key, LOCK_DURATION, TimeUnit.MINUTES);
         }
 
-        log.warn("🔐 로그인 실패: {} - {}회 시도", email, attempts);
+        log.warn("🔐 로그인 실패: {} [IP: {}] - {}회 시도", email, ip, attempts);
     }
 
     /**
      * 로그인 성공 처리
      * - 시도 횟수 초기화
      */
-    public void loginSucceeded(String email) {
-        String key = KEY_PREFIX + email;
+    public void loginSucceeded(String email, String ip) {
+        String key = KEY_PREFIX + email + ":" + ip;
         redisTemplate.delete(key);
-        log.info("✅ 로그인 성공: {} - 시도 횟수 초기화", email);
+        log.info("✅ 로그인 성공: {} [IP: {}] - 시도 횟수 초기화", email, ip);
     }
 
     /**
      * 계정 잠금 여부 확인
      */
-    public boolean isBlocked(String email) {
-        String key = KEY_PREFIX + email;
+    public boolean isBlocked(String email, String ip) {
+        String key = KEY_PREFIX + email + ":" + ip;
         String attempts = redisTemplate.opsForValue().get(key);
 
         if (attempts == null) return false;
@@ -62,7 +62,7 @@ public class LoginAttemptService {
         try {
             boolean blocked = Integer.parseInt(attempts) >= MAX_ATTEMPTS;
             if (blocked) {
-                log.warn("🚫 로그인 차단: {} - {}회 초과", email, attempts);
+                log.warn("🚫 로그인 차단: {} [IP: {}] - {}회 초과", email, ip, attempts);
             }
             return blocked;
         } catch (NumberFormatException e) {
@@ -74,8 +74,8 @@ public class LoginAttemptService {
     /**
      * 남은 시도 횟수 반환
      */
-    public int getRemainingAttempts(String email) {
-        String key = KEY_PREFIX + email;
+    public int getRemainingAttempts(String email, String ip) {
+        String key = KEY_PREFIX + email + ":" + ip;
         String attempts = redisTemplate.opsForValue().get(key);
         if (attempts == null) return MAX_ATTEMPTS;
         return Math.max(0, MAX_ATTEMPTS - Integer.parseInt(attempts));

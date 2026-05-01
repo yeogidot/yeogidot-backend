@@ -93,23 +93,23 @@ public class AuthService {
     }
 
     @Transactional
-    public String login(LoginRequest request) {
-        if (loginAttemptService.isBlocked(request.getEmail())) {
+    public String login(LoginRequest request, String clientIp) {
+        if (loginAttemptService.isBlocked(request.getEmail(), clientIp)) {
             throw new TooManyRequestsException("로그인 시도가 너무 많습니다. 5분 후 다시 시도해주세요.");
         }
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> {
-                    loginAttemptService.loginFailed(request.getEmail());
+                    loginAttemptService.loginFailed(request.getEmail(), clientIp);
                     return new IllegalArgumentException("이메일 또는 비밀번호를 확인해주세요.");
                 });
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            loginAttemptService.loginFailed(request.getEmail());
+            loginAttemptService.loginFailed(request.getEmail(), clientIp);
             throw new IllegalArgumentException("이메일 또는 비밀번호를 확인해주세요.");
         }
 
-        loginAttemptService.loginSucceeded(request.getEmail());
+        loginAttemptService.loginSucceeded(request.getEmail(), clientIp);
         return jwtTokenProvider.createToken(user.getId(), user.getEmail());
     }
 
