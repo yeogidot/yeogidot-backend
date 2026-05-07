@@ -49,19 +49,23 @@ public class AuthService {
     @Transactional
     public void signup(SignupRequest request, String clientIp) {
         // IP별 회원가입 횟수 제한 (1시간 3회) — 봇 회원가입 방지
-        checkSignupRateLimit(clientIp);
 
         if (!Boolean.TRUE.equals(request.getPrivacy_policy_agreed())) {
             throw new IllegalArgumentException("약관에 동의해야 합니다.");
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
-        }
+
         if (!request.getPassword().matches("^(?=.*[a-zA-Z])(?=.*[0-9]).{8,}$")) {
             throw new IllegalArgumentException("비밀번호는 8자 이상, 영문과 숫자를 모두 포함해야 합니다.");
         }
         if (!request.getPassword().equals(request.getPassword_check())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        }
+
+        // 기본 입력 검증을 통과한 요청만 회원가입 시도 횟수로 카운트
+        checkSignupRateLimit(clientIp);
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
         }
 
         User user = User.builder()
