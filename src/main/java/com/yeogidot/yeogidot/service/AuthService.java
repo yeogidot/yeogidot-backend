@@ -44,7 +44,7 @@ public class AuthService {
 
     private static final String BLACKLIST_PREFIX = "blacklist:";
     private static final String SIGNUP_IP_PREFIX = "signup_ip:";
-    private static final int SIGNUP_LIMIT_PER_HOUR = 3;
+    private static final int SIGNUP_LIMIT_PER_HOUR = 10;
 
     @Transactional
     public void signup(SignupRequest request, String clientIp) {
