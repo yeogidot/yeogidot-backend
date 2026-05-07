@@ -30,6 +30,7 @@ public class User extends BaseTimeEntity {
      * JWT 토큰의 iat(발급시각)이 이 값보다 이전이면 해당 토큰을 거부해
      * 비밀번호 변경 시 모든 기기의 토큰을 일괄 무효화한다.
      */
+    @Builder.Default
     @Column(name = "password_changed_at", nullable = false)
     private Instant passwordChangedAt = Instant.now();
 
