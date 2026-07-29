@@ -9,6 +9,7 @@ import com.yeogidot.yeogidot.entity.*;
 import com.yeogidot.yeogidot.repository.CommentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
+import com.yeogidot.yeogidot.security.OwnershipValidator;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,7 @@ public class PhotoService {
     private final GeoCodingService geoCodingService;
     private final ObjectMapper objectMapper;
     private final TravelDayRepository travelDayRepository;
+    private final OwnershipValidator ownershipValidator;
 
     /**
      * 프론트엔드에서 받는 메타데이터 DTO
@@ -358,6 +360,17 @@ public class PhotoService {
                 .orElseThrow(() -> new IllegalStateException("사진을 찾을 수 없습니다. ID: " + id));
     }
 
+    @Transactional(readOnly = true)
+    public Photo getPhotoById(Long id, Long currentUserId) {
+        Photo photo = getPhotoById(id);
+        ownershipValidator.validatePhotoOwner(
+                photo,
+                currentUserId,
+                "해당 사진을 조회할 권한이 없습니다."
+        );
+        return photo;
+    }
+
     /// 사진 삭제 기능
     @Transactional
     public Long deletePhoto(Long photoId, Long currentUserId) {
@@ -366,7 +379,7 @@ public class PhotoService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사진입니다."));
 
         // 권한 검증
-        validatePhotoOwnership(photo, currentUserId);
+        ownershipValidator.validatePhotoOwner(photo, currentUserId, "사진 삭제 권한이 없습니다.");
 
         // 삭제 전 소속 TravelDay 기억
         TravelDay travelDay = photo.getTravelDay();
@@ -403,14 +416,6 @@ public class PhotoService {
         return photoId;
     }
 
-    // 권한 검증 헬퍼 메소드
-    private void validatePhotoOwnership(Photo photo, Long currentUserId) {
-        // Photo 엔티티의 user로 직접 권한 확인 (TravelDay 여부와 무관)
-        if (!photo.getUser().getId().equals(currentUserId)) {
-            throw new SecurityException("사진 삭제 권한이 없습니다."); // 403 유발
-        }
-    }
-
     /**
      * 촬영 시간 수정 기능
      */
@@ -420,9 +425,11 @@ public class PhotoService {
                 .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
 
         // 권한 검증
-        if (!photo.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("촬영 시간을 수정할 권한이 없습니다.");
-        }
+        ownershipValidator.validatePhotoOwner(
+                photo,
+                user.getId(),
+                "촬영 시간을 수정할 권한이 없습니다."
+        );
 
         photo.updateTakenAt(newTakenAt);
     }
@@ -441,14 +448,17 @@ public class PhotoService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 날짜입니다."));
 
         // 권한 검증: photo.getUser()로 직접 소유자 확인 (TravelDay 여부 무관)
-        if (!photo.getUser().getId().equals(currentUserId)) {
-            throw new SecurityException("사진을 이동할 권한이 없습니다.");
-        }
+        ownershipValidator.validatePhotoOwner(
+                photo,
+                currentUserId,
+                "사진을 이동할 권한이 없습니다."
+        );
 
-        Long targetOwnerId = targetDay.getTravel().getUser().getId();
-        if (!targetOwnerId.equals(currentUserId)) {
-            throw new SecurityException("해당 여행에 사진을 추가할 권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelDayOwner(
+                targetDay,
+                currentUserId,
+                "해당 여행에 사진을 추가할 권한이 없습니다."
+        );
 
         // 사진 이동
         photo.setTravelDay(targetDay);
@@ -464,9 +474,11 @@ public class PhotoService {
                 .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
 
         // 권한 검증
-        if (!photo.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("사진을 수정할 권한이 없습니다.");
-        }
+        ownershipValidator.validatePhotoOwner(
+                photo,
+                user.getId(),
+                "사진을 수정할 권한이 없습니다."
+        );
 
         // 촬영 시간 수정
         if (request.getTakenAt() != null) {
@@ -479,9 +491,11 @@ public class PhotoService {
                     .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 날짜입니다."));
 
             // 목적지 여행의 소유자 확인
-            if (!targetDay.getTravel().getUser().getId().equals(user.getId())) {
-                throw new SecurityException("해당 여행에 사진을 추가할 권한이 없습니다.");
-            }
+            ownershipValidator.validateTravelDayOwner(
+                    targetDay,
+                    user.getId(),
+                    "해당 여행에 사진을 추가할 권한이 없습니다."
+            );
 
             photo.setTravelDay(targetDay);
         }

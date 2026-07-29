@@ -2,8 +2,10 @@ package com.yeogidot.yeogidot.service;
 
 import com.yeogidot.yeogidot.dto.TravelDto;
 import com.yeogidot.yeogidot.entity.*;
+import com.yeogidot.yeogidot.exception.BadRequestException;
 import com.yeogidot.yeogidot.exception.ResourceNotFoundException;
 import com.yeogidot.yeogidot.repository.*;
+import com.yeogidot.yeogidot.security.OwnershipValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +30,7 @@ public class TravelService {
     private final TravelLogRepository travelLogRepository;
     private final GcsService gcsService;
     private final GeoCodingService geoCodingService;
+    private final OwnershipValidator ownershipValidator;
 
     @Value("${app.frontend.base-url}")
     private String frontendBaseUrl;
@@ -72,9 +75,23 @@ public class TravelService {
             throw new IllegalArgumentException("최소 1장 이상의 사진을 선택해주세요.");
         }
 
-        // 2단계: 사진들의 정보 수집
-        // N+1 개선: findById() N번 → findAllById()로 IN절 1번 조회
-        List<Photo> photos = photoRepository.findAllById(request.getPhotoIds())
+        // 2단계: 요청 사진 조회 및 소유권 검증
+        // 중복 ID는 기존 요청 동작에 영향을 주지 않도록 제거한 뒤 한 번에 조회한다.
+        Set<Long> requestedPhotoIds = new LinkedHashSet<>(request.getPhotoIds());
+        List<Photo> requestedPhotos = photoRepository.findAllById(requestedPhotoIds);
+
+        if (requestedPhotos.size() != requestedPhotoIds.size()) {
+            throw new ResourceNotFoundException("사용할 수 없는 사진이 포함되어 있습니다.");
+        }
+
+        ownershipValidator.validatePhotoOwners(requestedPhotos, user.getId());
+
+        Long representativePhotoId = request.getRepresentativePhotoId();
+        if (representativePhotoId == null || !requestedPhotoIds.contains(representativePhotoId)) {
+            throw new BadRequestException("대표 사진을 올바르게 선택해주세요.");
+        }
+
+        List<Photo> photos = requestedPhotos
                 .stream()
                 .filter(photo -> photo.getTakenAt() != null)
                 .collect(Collectors.toList());
@@ -213,9 +230,11 @@ public class TravelService {
                 .orElseThrow(() -> new ResourceNotFoundException("여행 기록", travelId));
 
         // 권한 검증
-        if (!travel.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("해당 여행을 조회할 권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelOwner(
+                travel,
+                user.getId(),
+                "해당 여행을 조회할 권한이 없습니다."
+        );
 
         // 2단계: TravelDays + Photos 조회 (별도 쿼리, 영속성 컨텍스트에 로드)
         travelRepository.findDaysWithPhotos(travelId);
@@ -251,9 +270,7 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 여행입니다."));
 
         // 권한 검증
-        if (!travel.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("삭제 권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelOwner(travel, user.getId(), "삭제 권한이 없습니다.");
 
         // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)
         // N+1 개선: findByTravelDay() N번 → findByTravelDayIn() 1번으로 변경
@@ -275,9 +292,7 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 일차 정보를 찾을 수 없습니다."));
 
         // 권한 검증
-        if (!day.getTravel().getUser().getId().equals(user.getId())) {
-            throw new SecurityException("조회 권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelDayOwner(day, user.getId(), "조회 권한이 없습니다.");
 
         return new TravelDto.DayDetailResponse(
                 day.getId(),
@@ -294,9 +309,7 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 일차입니다."));
 
         // 권한 검증
-        if (!day.getTravel().getUser().getId().equals(user.getId())) {
-            throw new SecurityException("삭제 권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelDayOwner(day, user.getId(), "삭제 권한이 없습니다.");
 
         // 사진들을 명시적으로 조회 (Lazy Loading 해결)
         List<Photo> photos = photoRepository.findByTravelDay(day);
@@ -348,9 +361,7 @@ public class TravelService {
         Travel travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 여행입니다."));
 
-        if (!travel.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelOwner(travel, user.getId(), "권한이 없습니다.");
 
         // 이미 존재하는 날짜인지 확인
         boolean alreadyExists = travel.getTravelDays().stream()
@@ -416,9 +427,7 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 일차입니다."));
 
         // 권한 검증
-        if (!day.getTravel().getUser().getId().equals(user.getId())) {
-            throw new SecurityException("권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelDayOwner(day, user.getId(), "권한이 없습니다.");
 
         // N+1 개선: findById() N번 → findAllById()로 IN절 1번 조회
         List<Photo> photos = photoRepository.findAllById(photoIds);
@@ -434,9 +443,11 @@ public class TravelService {
             }
 
             // 사진 소유자 확인
-            if (!photo.getUser().getId().equals(user.getId())) {
-                throw new SecurityException("본인의 사진만 추가할 수 있습니다.");
-            }
+            ownershipValidator.validatePhotoOwner(
+                    photo,
+                    user.getId(),
+                    "본인의 사진만 추가할 수 있습니다."
+            );
 
             // 사진을 해당 TravelDay에 추가
             photo.setTravelDay(day);
@@ -456,9 +467,7 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 일차입니다."));
 
         // 권한 검증
-        if (!day.getTravel().getUser().getId().equals(user.getId())) {
-            throw new SecurityException("권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelDayOwner(day, user.getId(), "권한이 없습니다.");
 
         TravelLog log = TravelLog.builder()
                 .travelDay(day)
@@ -474,9 +483,7 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 일기입니다."));
 
         // 권한 검증
-        if (!log.getTravelDay().getTravel().getUser().getId().equals(user.getId())) {
-            throw new SecurityException("권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelLogOwner(log, user.getId(), "권한이 없습니다.");
 
         log.updateContent(request.getContent());
     }
@@ -488,9 +495,7 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 일기입니다."));
 
         // 권한 검증
-        if (!log.getTravelDay().getTravel().getUser().getId().equals(user.getId())) {
-            throw new SecurityException("권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelLogOwner(log, user.getId(), "권한이 없습니다.");
 
         travelLogRepository.delete(log);
     }
@@ -503,9 +508,11 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 여행 기록입니다."));
 
         // 본인 여부 확인
-        if (!travel.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("해당 여행을 공유할 권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelOwner(
+                travel,
+                user.getId(),
+                "해당 여행을 공유할 권한이 없습니다."
+        );
 
         // DB에 share_url이 없거나 구 도메인(travel.vercel.app)이면 새로 생성
         if (travel.getShareUrl() == null || travel.getShareUrl().isEmpty()
@@ -687,9 +694,11 @@ public class TravelService {
                 .orElseThrow(() -> new IllegalArgumentException("여행이 존재하지 않습니다."));
 
         // 권한 검증
-        if (!travel.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("여행을 수정할 권한이 없습니다.");
-        }
+        ownershipValidator.validateTravelOwner(
+                travel,
+                user.getId(),
+                "여행을 수정할 권한이 없습니다."
+        );
 
         // 제목 수정
         if (request.getTitle() != null) {
@@ -772,9 +781,11 @@ public class TravelService {
                         .orElseThrow(() -> new IllegalArgumentException("사진 ID " + photoId + "를 찾을 수 없습니다."));
 
                 // 사진 소유권 검증
-                if (!photo.getUser().getId().equals(user.getId())) {
-                    throw new SecurityException("본인의 사진만 추가할 수 있습니다. 사진 ID: " + photoId);
-                }
+                ownershipValidator.validatePhotoOwner(
+                        photo,
+                        user.getId(),
+                        "본인의 사진만 추가할 수 있습니다. 사진 ID: " + photoId
+                );
 
                 // 촬영 날짜 검증
                 if (photo.getTakenAt() == null) {
@@ -926,9 +937,11 @@ public class TravelService {
                     .orElseThrow(() -> new IllegalArgumentException("대표 사진이 존재하지 않습니다."));
 
             // 소유권 검증
-            if (!repPhoto.getUser().getId().equals(user.getId())) {
-                throw new SecurityException("본인의 사진만 대표 사진으로 설정할 수 있습니다.");
-            }
+            ownershipValidator.validatePhotoOwner(
+                    repPhoto,
+                    user.getId(),
+                    "본인의 사진만 대표 사진으로 설정할 수 있습니다."
+            );
 
             // 해당 사진이 이 여행에 속하는지 검증 (photoIds로 교체한 경우 포함)
             if (repPhoto.getTravelDay() == null ||

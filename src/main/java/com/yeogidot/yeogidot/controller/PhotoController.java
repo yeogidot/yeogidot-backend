@@ -263,10 +263,7 @@ public class PhotoController {
             @PathVariable Long photoId
     ) {
         User user = getCurrentUser();
-        Photo photo = photoService.getPhotoById(photoId);
-        if (!photo.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("해당 사진을 조회할 권한이 없습니다.");
-        }
+        Photo photo = photoService.getPhotoById(photoId, user.getId());
         return ResponseEntity.ok(photo);
     }
 
