@@ -11,6 +11,7 @@ import com.yeogidot.yeogidot.repository.TravelDayRepository;
 import com.yeogidot.yeogidot.repository.TravelLogRepository;
 import com.yeogidot.yeogidot.repository.TravelRepository;
 import com.yeogidot.yeogidot.repository.UserRepository;
+import com.yeogidot.yeogidot.security.OwnershipValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,9 +47,11 @@ class TravelServiceTest {
     private GeoCodingService geoCodingService;
 
     private TravelService travelService;
+    private OwnershipValidator ownershipValidator;
 
     @BeforeEach
     void setUp() {
+        ownershipValidator = new OwnershipValidator();
         travelService = new TravelService(
                 travelRepository,
                 userRepository,
@@ -56,7 +59,8 @@ class TravelServiceTest {
                 travelDayRepository,
                 travelLogRepository,
                 gcsService,
-                geoCodingService
+                geoCodingService,
+                ownershipValidator
         );
     }
 
