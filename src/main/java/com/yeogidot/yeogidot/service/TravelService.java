@@ -2,6 +2,8 @@ package com.yeogidot.yeogidot.service;
 
 import com.yeogidot.yeogidot.dto.TravelDto;
 import com.yeogidot.yeogidot.entity.*;
+import com.yeogidot.yeogidot.exception.BadRequestException;
+import com.yeogidot.yeogidot.exception.ForbiddenException;
 import com.yeogidot.yeogidot.exception.ResourceNotFoundException;
 import com.yeogidot.yeogidot.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -72,9 +74,28 @@ public class TravelService {
             throw new IllegalArgumentException("최소 1장 이상의 사진을 선택해주세요.");
         }
 
-        // 2단계: 사진들의 정보 수집
-        // N+1 개선: findById() N번 → findAllById()로 IN절 1번 조회
-        List<Photo> photos = photoRepository.findAllById(request.getPhotoIds())
+        // 2단계: 요청 사진 조회 및 소유권 검증
+        // 중복 ID는 기존 요청 동작에 영향을 주지 않도록 제거한 뒤 한 번에 조회한다.
+        Set<Long> requestedPhotoIds = new LinkedHashSet<>(request.getPhotoIds());
+        List<Photo> requestedPhotos = photoRepository.findAllById(requestedPhotoIds);
+
+        if (requestedPhotos.size() != requestedPhotoIds.size()) {
+            throw new ResourceNotFoundException("사용할 수 없는 사진이 포함되어 있습니다.");
+        }
+
+        boolean containsOtherUserPhoto = requestedPhotos.stream()
+                .anyMatch(photo -> !photo.getUser().getId().equals(user.getId()));
+
+        if (containsOtherUserPhoto) {
+            throw new ForbiddenException("사용할 수 없는 사진이 포함되어 있습니다.");
+        }
+
+        Long representativePhotoId = request.getRepresentativePhotoId();
+        if (representativePhotoId == null || !requestedPhotoIds.contains(representativePhotoId)) {
+            throw new BadRequestException("대표 사진을 올바르게 선택해주세요.");
+        }
+
+        List<Photo> photos = requestedPhotos
                 .stream()
                 .filter(photo -> photo.getTakenAt() != null)
                 .collect(Collectors.toList());

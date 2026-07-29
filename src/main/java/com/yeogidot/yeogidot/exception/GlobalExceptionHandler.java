@@ -108,6 +108,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbiddenException(ForbiddenException e) {
+        log.error("권한 없음: {}", e.getMessage());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 403);
+        response.put("error", "FORBIDDEN");
+        response.put("message", e.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
     /**
      * ===== 요청 파라미터/바디 관련 예외 (400 Bad Request) =====
      */
@@ -246,6 +258,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<Map<String, Object>> handleBadRequestException(BadRequestException e) {
+        log.error("잘못된 요청: {}", e.getMessage());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 400);
+        response.put("error", "BAD_REQUEST");
+        response.put("message", e.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     /**
      * ===== 리소스 관련 예외 (404 Not Found) =====
      */
@@ -258,6 +282,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalStateException(IllegalStateException e) {
         log.error("상태 오류: {}", e.getMessage());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 404);
+        response.put("error", "NOT_FOUND");
+        response.put("message", e.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleResourceNotFoundException(ResourceNotFoundException e) {
+        log.error("리소스를 찾을 수 없음: {}", e.getMessage());
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", 404);
