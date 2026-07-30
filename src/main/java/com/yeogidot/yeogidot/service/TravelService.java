@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -700,135 +702,137 @@ public class TravelService {
                 "여행을 수정할 권한이 없습니다."
         );
 
-        // 제목 수정
-        if (request.getTitle() != null) {
-            travel.updateTitle(request.getTitle());
-        }
+        boolean replacePhotos = request.getPhotoIds() != null;
+        List<TravelDay> existingDays = List.of();
+        List<Photo> existingPhotos = List.of();
+        List<Photo> finalPhotos = List.of();
+        List<Photo> photosToDelete = List.of();
+        Set<Long> finalPhotoIds = Set.of();
+        List<String> filesToDeleteAfterCommit = new ArrayList<>();
 
-        // photoIds가 제공된 경우: 증분 업데이트 (유지/삭제/추가)
-        if (request.getPhotoIds() != null) {
-            // null 값 필터링 (불변 리스트 방어)
-            List<Long> filteredPhotoIds = request.getPhotoIds().stream()
-                    .filter(id -> id != null)
-                    .collect(Collectors.toList());
-            request.setPhotoIds(filteredPhotoIds);
-            log.info("🔄 사진 증분 업데이트 시작 - Travel ID: {}, 요청 사진 개수: {}", travelId, request.getPhotoIds().size());
+        // === 1. 검증 단계: 엔티티, DB, R2를 변경하지 않는다. ===
+        if (replacePhotos) {
+            LinkedHashSet<Long> requestedPhotoIds = request.getPhotoIds().stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
 
-            // 1단계: 기존 사진들 수집
-            // N+1 개선: findByTravelDay() N번 → findByTravelDayIn()으로 IN절 1번 조회
-            List<TravelDay> existingDays = travelDayRepository.findByTravelId(travelId);
-            List<Photo> existingPhotos = photoRepository.findByTravelDayIn(existingDays);
+            existingDays = travelDayRepository.findByTravelId(travelId);
+            existingPhotos = existingDays.isEmpty()
+                    ? List.of()
+                    : photoRepository.findByTravelDayIn(existingDays);
 
-            Set<Long> existingPhotoIds = existingPhotos.stream()
-                    .map(Photo::getId)
-                    .collect(Collectors.toSet());
-
-            Set<Long> requestedPhotoIds = new HashSet<>(request.getPhotoIds());
-
-            log.info("📋 기존 사진: {}, 요청 사진: {}", existingPhotoIds, requestedPhotoIds);
-
-            // 2단계: 유지할 사진 vs 삭제할 사진 구분
-            Set<Long> photosToKeep = new HashSet<>(existingPhotoIds);
-            photosToKeep.retainAll(requestedPhotoIds); // 교집합 (유지)
-
-            Set<Long> photosToDelete = new HashSet<>(existingPhotoIds);
-            photosToDelete.removeAll(requestedPhotoIds); // 기존에만 있음 (삭제)
-
-            Set<Long> photosToAdd = new HashSet<>(requestedPhotoIds);
-            photosToAdd.removeAll(existingPhotoIds); // 요청에만 있음 (추가)
-
-            log.info("✅ 유지: {}, 🗑️ 삭제: {}, ➕ 추가: {}", photosToKeep, photosToDelete, photosToAdd);
-
-            // 3단계: 삭제할 사진 처리 (GCS + DB)
-            // N+1 개선: findById() N번 → 이미 조회한 existingPhotos에서 Map으로 찾기 (DB 조회 0번)
             Map<Long, Photo> existingPhotoMap = existingPhotos.stream()
-                    .collect(Collectors.toMap(Photo::getId, p -> p));
+                    .collect(Collectors.toMap(Photo::getId, photo -> photo));
 
-            if (!photosToDelete.isEmpty()) {
-                for (Long photoId : photosToDelete) {
-                    Photo photo = existingPhotoMap.get(photoId);
-                    if (photo != null) {
-                        try {
-                            // GCS 파일 삭제
-                            gcsService.deleteFile(photo.getFilePath());
-                            log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
+            List<Photo> validatedFinalPhotos = new ArrayList<>();
+            Map<Long, Photo> finalPhotoMap = new HashMap<>();
 
-                            // DB에서 사진 삭제 (TravelDay 연결 해제)
-                            photo.setTravelDay(null);
-                            photoRepository.delete(photo);
-                            log.info("🗑️ DB 사진 삭제: Photo ID {}", photoId);
-                        } catch (Exception e) {
-                            log.warn("⚠️ 사진 삭제 실패 (계속 진행): Photo ID {}", photoId, e);
-                        }
-                    }
+            for (Long photoId : requestedPhotoIds) {
+                Photo photo = existingPhotoMap.get(photoId);
+                if (photo == null) {
+                    photo = photoRepository.findById(photoId)
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "사진 ID " + photoId + "를 찾을 수 없습니다."
+                            ));
                 }
-            }
 
-            // 4단계: 추가할 사진 검증 및 수집
-            List<Photo> allPhotos = new ArrayList<>();
-
-            // 유지할 사진 추가
-            for (Long photoId : photosToKeep) {
-                Photo photo = photoRepository.findById(photoId).orElse(null);
-                if (photo != null && photo.getTakenAt() != null) {
-                    allPhotos.add(photo);
-                }
-            }
-
-            // 새로운 사진 검증 및 추가
-            for (Long photoId : photosToAdd) {
-                Photo photo = photoRepository.findById(photoId)
-                        .orElseThrow(() -> new IllegalArgumentException("사진 ID " + photoId + "를 찾을 수 없습니다."));
-
-                // 사진 소유권 검증
                 ownershipValidator.validatePhotoOwner(
                         photo,
                         user.getId(),
                         "본인의 사진만 추가할 수 있습니다. 사진 ID: " + photoId
                 );
 
-                // 촬영 날짜 검증
                 if (photo.getTakenAt() == null) {
                     throw new IllegalArgumentException("사진 ID " + photoId + "에 촬영 날짜 정보가 없습니다.");
                 }
 
-                allPhotos.add(photo);
+                validatedFinalPhotos.add(photo);
+                finalPhotoMap.put(photoId, photo);
             }
 
-            // 5단계: 빈 일차 삭제
-            for (TravelDay day : existingDays) {
-                List<Photo> remainingPhotos = photoRepository.findByTravelDay(day);
-                if (remainingPhotos.isEmpty()) {
-                    log.info("🗑️ 빈 일차 삭제: Day {} ({})", day.getDayNumber(), day.getDate());
-                    travelDayRepository.delete(day);
+            if (request.getRepresentativePhotoId() != null) {
+                Long representativePhotoId = request.getRepresentativePhotoId();
+                Photo representativePhoto = finalPhotoMap.get(representativePhotoId);
+
+                if (representativePhoto == null) {
+                    representativePhoto = photoRepository.findById(representativePhotoId)
+                            .orElseThrow(() -> new IllegalArgumentException("대표 사진이 존재하지 않습니다."));
+                    ownershipValidator.validatePhotoOwner(
+                            representativePhoto,
+                            user.getId(),
+                            "본인의 사진만 대표 사진으로 설정할 수 있습니다."
+                    );
+                    throw new IllegalArgumentException("이 여행에 속하지 않는 사진은 대표 사진으로 설정할 수 없습니다.");
+                }
+            }
+
+            finalPhotos = validatedFinalPhotos;
+            finalPhotoIds = new LinkedHashSet<>(requestedPhotoIds);
+            Set<Long> requestedIdsForDeletion = finalPhotoIds;
+            photosToDelete = existingPhotos.stream()
+                    .filter(photo -> !requestedIdsForDeletion.contains(photo.getId()))
+                    .collect(Collectors.toList());
+
+            log.info(
+                    "🔄 사진 업데이트 검증 완료 - Travel ID: {}, 유지/최종: {}, 삭제: {}",
+                    travelId,
+                    finalPhotoIds,
+                    photosToDelete.stream().map(Photo::getId).collect(Collectors.toSet())
+            );
+        } else if (request.getRepresentativePhotoId() != null) {
+            Photo representativePhoto = photoRepository.findById(request.getRepresentativePhotoId())
+                    .orElseThrow(() -> new IllegalArgumentException("대표 사진이 존재하지 않습니다."));
+
+            ownershipValidator.validatePhotoOwner(
+                    representativePhoto,
+                    user.getId(),
+                    "본인의 사진만 대표 사진으로 설정할 수 있습니다."
+            );
+
+            if (representativePhoto.getTravelDay() == null ||
+                    !representativePhoto.getTravelDay().getTravel().getId().equals(travelId)) {
+                throw new IllegalArgumentException("이 여행에 속하지 않는 사진은 대표 사진으로 설정할 수 없습니다.");
+            }
+        }
+
+        // === 2. 변경 단계: 모든 검증이 성공한 뒤 DB만 변경한다. ===
+        if (request.getTitle() != null) {
+            travel.updateTitle(request.getTitle());
+        }
+
+        if (replacePhotos) {
+            for (Photo photo : photosToDelete) {
+                filesToDeleteAfterCommit.add(photo.getFilePath());
+                photo.setTravelDay(null);
+                photoRepository.delete(photo);
+                log.info("🗑️ DB 사진 삭제 예약: Photo ID {}", photo.getId());
+            }
+
+            Set<LocalDate> finalPhotoDates = finalPhotos.stream()
+                    .map(photo -> photo.getTakenAt().toLocalDate())
+                    .collect(Collectors.toSet());
+
+            Map<LocalDate, TravelDay> dayMap = new HashMap<>();
+            for (TravelDay existingDay : existingDays) {
+                if (finalPhotoDates.contains(existingDay.getDate())) {
+                    dayMap.put(existingDay.getDate(), existingDay);
+                } else {
+                    travelDayRepository.delete(existingDay);
+                    log.info("🗑️ 빈 일차 삭제: Day {} ({})", existingDay.getDayNumber(), existingDay.getDate());
                 }
             }
             travelDayRepository.flush();
 
-            // 6단계: 사진 날짜별로 그룹화 및 일차 재구성
-            if (!allPhotos.isEmpty()) {
-                List<LocalDate> photoDates = allPhotos.stream()
-                        .map(photo -> photo.getTakenAt().toLocalDate())
-                        .distinct()
+            if (!finalPhotos.isEmpty()) {
+                List<LocalDate> photoDates = finalPhotoDates.stream()
                         .sorted()
                         .collect(Collectors.toList());
 
-                log.info("📅 최종 사진 날짜들: {}", photoDates);
-
-                // 기존 일차를 날짜 맵으로 구성 (재사용)
-                Map<LocalDate, TravelDay> dayMap = new HashMap<>();
-                List<TravelDay> currentDays = travelDayRepository.findByTravelId(travelId);
-
-                for (TravelDay day : currentDays) {
-                    dayMap.put(day.getDate(), day);
-                }
-
-                // 7단계: 필요한 일차 생성 (없는 날짜만)
                 for (LocalDate photoDate : photoDates) {
                     if (!dayMap.containsKey(photoDate)) {
                         TravelDay newDay = TravelDay.builder()
                                 .travel(travel)
-                                .dayNumber(0) // 임시, 나중에 재정렬
+                                .dayNumber(0)
                                 .date(photoDate)
                                 .build();
                         travelDayRepository.save(newDay);
@@ -837,39 +841,29 @@ public class TravelService {
                     }
                 }
 
-                // 8단계: dayNumber 재정렬
                 List<TravelDay> sortedDays = dayMap.values().stream()
                         .sorted(Comparator.comparing(TravelDay::getDate))
                         .collect(Collectors.toList());
 
-                int dayNumber = 1;
-                for (TravelDay day : sortedDays) {
-                    day.updateDayNumber(dayNumber++);
-                    travelDayRepository.save(day);
+                for (int index = 0; index < sortedDays.size(); index++) {
+                    TravelDay sortedDay = sortedDays.get(index);
+                    sortedDay.updateDayNumber(index + 1);
+                    travelDayRepository.save(sortedDay);
                 }
 
-                // 9단계: 사진을 해당 날짜의 TravelDay에 배치
-                for (Photo photo : allPhotos) {
-                    LocalDate photoDate = photo.getTakenAt().toLocalDate();
-                    TravelDay matchingDay = dayMap.get(photoDate);
-
-                    if (matchingDay != null) {
-                        photo.setTravelDay(matchingDay);
-                        photoRepository.save(photo);
-                        log.info("📸 사진 {} → Day {} 연결", photo.getId(), matchingDay.getDayNumber());
-                    }
+                for (Photo photo : finalPhotos) {
+                    TravelDay matchingDay = dayMap.get(photo.getTakenAt().toLocalDate());
+                    photo.setTravelDay(matchingDay);
+                    photoRepository.save(photo);
+                    log.info("📸 사진 {} → Day {} 연결", photo.getId(), matchingDay.getDayNumber());
                 }
 
-                // 10단계: 각 TravelDay의 dayRegion 자동 설정
                 for (LocalDate photoDate : photoDates) {
-                    TravelDay day = dayMap.get(photoDate);
-
-                    // 해당 날짜의 사진들 수집
-                    List<Photo> dayPhotos = allPhotos.stream()
-                            .filter(p -> p.getTakenAt().toLocalDate().equals(photoDate))
+                    TravelDay targetDay = dayMap.get(photoDate);
+                    List<Photo> dayPhotos = finalPhotos.stream()
+                            .filter(photo -> photo.getTakenAt().toLocalDate().equals(photoDate))
                             .collect(Collectors.toList());
 
-                    // 사진 위치 기반으로 dayRegion 결정
                     Map<String, Long> regionCount = dayPhotos.stream()
                             .filter(photo -> photo.getLatitude() != null && photo.getLongitude() != null)
                             .map(photo -> {
@@ -879,11 +873,8 @@ public class TravelService {
                                 );
                                 return regionInfo != null ? regionInfo.getRegion2depth() : null;
                             })
-                            .filter(region -> region != null)
-                            .collect(Collectors.groupingBy(
-                                    region -> region,
-                                    Collectors.counting()
-                            ));
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.groupingBy(region -> region, Collectors.counting()));
 
                     String dayRegion = regionCount.entrySet().stream()
                             .max(Map.Entry.comparingByValue())
@@ -891,66 +882,76 @@ public class TravelService {
                             .orElse(null);
 
                     if (dayRegion != null) {
-                        day.updateDayRegion(dayRegion);
-                        travelDayRepository.save(day);
-                        log.info("🗺️ 일차 {} 지역 설정: {}", day.getDayNumber(), dayRegion);
+                        targetDay.updateDayRegion(dayRegion);
+                        travelDayRepository.save(targetDay);
                     }
                 }
 
-                // 11단계: Travel의 startDate, endDate 갱신
-                LocalDate newStartDate = photoDates.get(0);
-                LocalDate newEndDate = photoDates.get(photoDates.size() - 1);
-                travel.updateDates(newStartDate, newEndDate);
-                log.info("📅 여행 날짜 갱신: {} ~ {}", newStartDate, newEndDate);
+                travel.updateDates(photoDates.get(0), photoDates.get(photoDates.size() - 1));
 
-                // 12단계: 지역명 자동 갱신 (위도/경도 기반)
-                Map<String, Long> travelRegionCount = allPhotos.stream()
+                Map<String, Long> travelRegionCount = finalPhotos.stream()
                         .filter(photo -> photo.getLatitude() != null && photo.getLongitude() != null)
                         .map(photo -> geoCodingService.getRegionFromCoordinates(
                                 photo.getLatitude(),
                                 photo.getLongitude()
                         ))
-                        .filter(region -> region != null)
-                        .collect(Collectors.groupingBy(
-                                region -> region,
-                                Collectors.counting()
-                        ));
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.groupingBy(region -> region, Collectors.counting()));
 
-                String newTrvRegion = travelRegionCount.entrySet().stream()
+                String newTravelRegion = travelRegionCount.entrySet().stream()
                         .max(Map.Entry.comparingByValue())
                         .map(Map.Entry::getKey)
                         .orElse("미지정");
-
-                travel.updateTrvRegion(newTrvRegion);
-                log.info("🗺️ 여행 지역 갱신: {}", newTrvRegion);
+                travel.updateTrvRegion(newTravelRegion);
             } else {
                 log.warn("⚠️ 모든 사진이 삭제되었습니다. 여행 ID: {}", travelId);
             }
 
-            log.info("✅ 사진 증분 업데이트 완료 - Travel ID: {}", travelId);
+            if (request.getRepresentativePhotoId() != null) {
+                travel.updateRepresentativePhoto(request.getRepresentativePhotoId());
+            } else if (travel.getRepresentativePhotoId() != null &&
+                    !finalPhotoIds.contains(travel.getRepresentativePhotoId())) {
+                travel.updateRepresentativePhoto(null);
+            }
+        } else if (request.getRepresentativePhotoId() != null) {
+            travel.updateRepresentativePhoto(request.getRepresentativePhotoId());
         }
 
-        // 대표 사진 수정 (photoIds 처리 후 실행하여 유효한 사진만 설정)
-        if (request.getRepresentativePhotoId() != null) {
-            // 사진 존재 여부 및 소유권 확인
-            Photo repPhoto = photoRepository.findById(request.getRepresentativePhotoId())
-                    .orElseThrow(() -> new IllegalArgumentException("대표 사진이 존재하지 않습니다."));
+        // === 3. 외부 저장소 변경: DB 커밋 성공 후에만 실행한다. ===
+        deleteR2FilesAfterCommit(filesToDeleteAfterCommit);
+        log.info("✅ 여행 수정 DB 작업 완료 - Travel ID: {}", travelId);
+    }
 
-            // 소유권 검증
-            ownershipValidator.validatePhotoOwner(
-                    repPhoto,
-                    user.getId(),
-                    "본인의 사진만 대표 사진으로 설정할 수 있습니다."
-            );
+    private void deleteR2FilesAfterCommit(List<String> fileUrls) {
+        if (fileUrls.isEmpty()) {
+            return;
+        }
 
-            // 해당 사진이 이 여행에 속하는지 검증 (photoIds로 교체한 경우 포함)
-            if (repPhoto.getTravelDay() == null ||
-                    !repPhoto.getTravelDay().getTravel().getId().equals(travelId)) {
-                throw new IllegalArgumentException("이 여행에 속하지 않는 사진은 대표 사진으로 설정할 수 없습니다.");
+        List<String> immutableFileUrls = List.copyOf(fileUrls);
+        if (TransactionSynchronizationManager.isSynchronizationActive() &&
+                TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteR2FilesSafely(immutableFileUrls);
+                }
+            });
+            return;
+        }
+
+        log.warn("활성 트랜잭션이 없어 R2 파일을 즉시 삭제합니다.");
+        deleteR2FilesSafely(immutableFileUrls);
+    }
+
+    private void deleteR2FilesSafely(List<String> fileUrls) {
+        for (String fileUrl : fileUrls) {
+            try {
+                gcsService.deleteFile(fileUrl);
+                log.info("🗑️ DB 커밋 후 R2 파일 삭제: {}", fileUrl);
+            } catch (Exception exception) {
+                // DB는 이미 커밋됐으므로 예외를 전파해 성공한 요청을 500으로 바꾸지 않는다.
+                log.error("DB 커밋 후 R2 파일 삭제 실패 - 재삭제 필요: {}", fileUrl, exception);
             }
-
-            travel.updateRepresentativePhoto(request.getRepresentativePhotoId());
-            log.info("🖼️ 대표 사진 변경: {}", request.getRepresentativePhotoId());
         }
     }
 }
