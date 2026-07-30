@@ -274,18 +274,20 @@ public class TravelService {
         // 권한 검증
         ownershipValidator.validateTravelOwner(travel, user.getId(), "삭제 권한이 없습니다.");
 
-        // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)
+        // DB 삭제 후에도 사용할 수 있도록 R2 URL만 미리 보관한다.
         // N+1 개선: findByTravelDay() N번 → findByTravelDayIn() 1번으로 변경
         List<TravelDay> travelDays = travelDayRepository.findByTravelId(travelId);
         List<Photo> photos = photoRepository.findByTravelDayIn(travelDays);
-        for (Photo photo : photos) {
-            gcsService.deleteFile(photo.getFilePath());
-            log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
-        }
+        List<String> fileUrlsToDelete = photos.stream()
+                .map(Photo::getFilePath)
+                .toList();
 
         // DB는 Cascade로 자동 삭제 (Travel -> TravelDay -> Photo, TravelLog, Cment 모두 자동)
         travelRepository.delete(travel);
-        log.info("✅ 여행 삭제 완료 - Travel ID: {}", travelId);
+
+        // DB 커밋에 성공한 경우에만 외부 저장소 파일을 삭제한다.
+        deleteR2FilesAfterCommit(fileUrlsToDelete);
+        log.info("✅ 여행 삭제 DB 작업 완료 - Travel ID: {}", travelId);
     }
 
     // === 여행 일차 상세 조회 ===
@@ -323,11 +325,10 @@ public class TravelService {
         int deletedDayNumber = day.getDayNumber();
         Long travelId = travel.getId();
 
-        // GCS에서 사진 파일 삭제 (외부 저장소는 Cascade 안 됨)
-        for (Photo photo : photos) {
-            gcsService.deleteFile(photo.getFilePath());
-            log.info("🗑️ GCS 파일 삭제: {}", photo.getFilePath());
-        }
+        // DB 삭제 후에도 사용할 수 있도록 R2 URL만 미리 보관한다.
+        List<String> fileUrlsToDelete = photos.stream()
+                .map(Photo::getFilePath)
+                .toList();
 
         // 사진 먼저 DB에서 삭제 (Cascade 충돌 방지)
         photoRepository.deleteAll(photos);
@@ -354,6 +355,9 @@ public class TravelService {
 
         // 일차 삭제 후 여행의 startDate/endDate 갱신
         updateTravelDates(travel);
+
+        // 모든 DB 작업이 커밋된 경우에만 외부 저장소 파일을 삭제한다.
+        deleteR2FilesAfterCommit(fileUrlsToDelete);
     }
 
     // === 여행 일차 수동 추가  ===

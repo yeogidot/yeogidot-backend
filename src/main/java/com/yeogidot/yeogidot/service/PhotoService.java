@@ -464,8 +464,8 @@ public class PhotoService {
             travel.updateRepresentativePhoto(null);
         }
 
-        // GCS 파일 삭제
-        gcsService.deleteFile(photo.getFilePath());
+        // DB 삭제 후에도 사용할 수 있도록 R2 URL을 미리 보관한다.
+        String fileUrlToDelete = photo.getFilePath();
 
         // DB 삭제
         photoRepository.delete(photo);
@@ -486,7 +486,43 @@ public class PhotoService {
             }
         }
 
+        // 모든 DB 작업이 커밋된 경우에만 외부 저장소 파일을 삭제한다.
+        deleteR2FilesAfterCommit(List.of(fileUrlToDelete));
+
         return photoId;
+    }
+
+    private void deleteR2FilesAfterCommit(List<String> fileUrls) {
+        if (fileUrls.isEmpty()) {
+            return;
+        }
+
+        List<String> immutableFileUrls = List.copyOf(fileUrls);
+        if (TransactionSynchronizationManager.isSynchronizationActive() &&
+                TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteR2FilesSafely(immutableFileUrls);
+                }
+            });
+            return;
+        }
+
+        log.warn("활성 트랜잭션이 없어 R2 파일을 즉시 삭제합니다.");
+        deleteR2FilesSafely(immutableFileUrls);
+    }
+
+    private void deleteR2FilesSafely(List<String> fileUrls) {
+        for (String fileUrl : fileUrls) {
+            try {
+                gcsService.deleteFile(fileUrl);
+                log.info("🗑️ DB 커밋 후 R2 파일 삭제: {}", fileUrl);
+            } catch (Exception exception) {
+                // DB는 이미 커밋됐으므로 예외를 전파해 성공한 요청을 500으로 바꾸지 않는다.
+                log.error("DB 커밋 후 R2 파일 삭제 실패 - 재삭제 필요: {}", fileUrl, exception);
+            }
+        }
     }
 
     /**

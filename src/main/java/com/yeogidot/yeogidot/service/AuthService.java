@@ -19,6 +19,8 @@ import com.yeogidot.yeogidot.repository.UserRepository;
 
 import com.yeogidot.yeogidot.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -145,12 +147,14 @@ public class AuthService {
      * 회원탈퇴
      *
      * 삭제 순서 (FK 제약 조건 위반 방지):
-     * 1. R2 스토리지 사진 파일 삭제
+     * 1. 삭제할 R2 사진 URL 수집
      * 2. 내가 작성한 댓글 삭제 (Comment.writer_id → User FK 위반 방지)
      * 3. 여행 삭제 (cascade → TravelDay → Photo, TravelLog)
      * 4. 미분류 사진 DB 삭제
      * 5. 유저 삭제
-     * 6. 토큰 Redis 블랙리스트 등록 (탈퇴 후 기존 토큰 즉시 무효화)
+     * 6. DB 커밋 후 R2 사진 삭제 콜백 등록
+     * 7. 토큰 Redis 블랙리스트 등록 (탈퇴 후 기존 토큰 즉시 무효화)
+     * 8. DB 커밋 성공 후 등록한 콜백에서 R2 사진 파일 삭제
      *
      * @param token 탈퇴 요청에 사용된 JWT 토큰 (null이면 블랙리스트 등록 건너뜀)
      */
@@ -163,16 +167,11 @@ public class AuthService {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
 
-        // 1. R2 스토리지 사진 파일 삭제 (DB 삭제는 cascade에 맡김)
+        // 1. DB 삭제 후에도 사용할 수 있도록 R2 URL만 미리 보관한다.
         List<Photo> allPhotos = photoRepository.findByUserId(userId);
-        for (Photo photo : allPhotos) {
-            try {
-                gcsService.deleteFile(photo.getFilePath());
-                log.info("R2 사진 삭제 완료 - photoId: {}", photo.getId());
-            } catch (Exception e) {
-                log.warn("R2 사진 삭제 실패 (DB 삭제는 계속 진행) - photoId: {}, error: {}", photo.getId(), e.getMessage());
-            }
-        }
+        List<String> fileUrlsToDelete = allPhotos.stream()
+                .map(Photo::getFilePath)
+                .toList();
 
         // 2. 내가 다른 사람 사진에 작성한 댓글 삭제 (writer_id = userId)
         commentRepository.deleteByWriterId(userId);
@@ -192,14 +191,49 @@ public class AuthService {
         userRepository.delete(user);
         log.info("회원탈퇴 완료 - userId: {}, email: {}", userId, user.getEmail());
 
-        // 6. 기존 토큰 Redis 블랙리스트 등록 (탈퇴 후 즉시 무효화)
-        //    @Transactional 바깥에서 실행되도록 메서드 마지막에 위치
-        //    DB 삭제가 커밋된 이후 블랙리스트에 올라가므로 순서 보장
+        // DB 커밋에 성공한 경우에만 외부 저장소 파일을 삭제한다.
+        deleteR2FilesAfterCommit(fileUrlsToDelete);
+
+        // 7. 기존 토큰 Redis 블랙리스트 등록 (탈퇴 후 즉시 무효화)
         if (token != null) {
             logout(token);
             log.info("탈퇴 토큰 블랙리스트 등록 완료 - userId: {}", userId);
         }
     }
+
+    private void deleteR2FilesAfterCommit(List<String> fileUrls) {
+        if (fileUrls.isEmpty()) {
+            return;
+        }
+
+        List<String> immutableFileUrls = List.copyOf(fileUrls);
+        if (TransactionSynchronizationManager.isSynchronizationActive() &&
+                TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteR2FilesSafely(immutableFileUrls);
+                }
+            });
+            return;
+        }
+
+        log.warn("활성 트랜잭션이 없어 R2 파일을 즉시 삭제합니다.");
+        deleteR2FilesSafely(immutableFileUrls);
+    }
+
+    private void deleteR2FilesSafely(List<String> fileUrls) {
+        for (String fileUrl : fileUrls) {
+            try {
+                gcsService.deleteFile(fileUrl);
+                log.info("DB 커밋 후 R2 사진 삭제 완료 - fileUrl: {}", fileUrl);
+            } catch (Exception exception) {
+                // DB는 이미 커밋됐으므로 예외를 전파해 성공한 요청을 500으로 바꾸지 않는다.
+                log.error("DB 커밋 후 R2 사진 삭제 실패 - 재삭제 필요: {}", fileUrl, exception);
+            }
+        }
+    }
+
     /**
      * IP별 회원가입 시도 제한 (1시간 3회)
      * - Redis에 IP를 키로 카운터 저장, TTL 1시간
