@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
@@ -22,13 +24,16 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.util.Set;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -145,7 +150,12 @@ public class PhotoService {
         long totalStart = System.currentTimeMillis();
         log.info("===== 사진 업로드 시작: 총 {}장 =====", files.size());
 
-        // ✅ 비동기 병렬처리: GCS 업로드 + 카카오 API를 모든 사진 동시에 실행
+        // R2 업로드 직후 URL을 기록한다. 이후 역지오코딩/파싱이 실패해도 보상 삭제할 수 있다.
+        Queue<String> uploadedUrls = new ConcurrentLinkedQueue<>();
+        AtomicBoolean compensationInProgress = new AtomicBoolean(false);
+        registerUploadRollbackCompensation(uploadedUrls, compensationInProgress);
+
+        // 비동기 병렬처리: R2 업로드 + 카카오 API를 여러 사진에서 동시에 실행
         List<CompletableFuture<Photo>> futures = new ArrayList<>();
 
         for (int i = 0; i < files.size(); i++) {
@@ -167,6 +177,7 @@ public class PhotoService {
                     // 1. GCS 업로드 (여러 사진 동시 실행)
                     long gcsStart = System.currentTimeMillis();
                     String gcsUrl = gcsService.uploadFile(file);
+                    uploadedUrls.add(gcsUrl);
                     log.info("[{}번] R2 업로드 소요시간: {}ms", index + 1, System.currentTimeMillis() - gcsStart);
 
                     // 2. 좌표 처리
@@ -207,38 +218,100 @@ public class PhotoService {
             futures.add(future);
         }
 
-        //  모든 병렬 작업 완료 대기 후 DB에 순차 저장
-        // (DB 저장은 @Transactional이 메인 스레드에서 동작하므로 여기서 처리)
-        List<Photo> uploadedPhotos = new ArrayList<>(); // GCS 업로드 완료된 사진들 추적
+        // 실패한 Future가 있어도 나머지 Future가 모두 끝날 때까지 기다린다.
+        // 그래야 실패를 관찰한 뒤 늦게 업로드되는 R2 파일까지 보상 목록에 포함된다.
+        List<Photo> processedPhotos = new ArrayList<>();
+        RuntimeException firstFailure = null;
+
+        for (CompletableFuture<Photo> future : futures) {
+            try {
+                processedPhotos.add(future.join());
+            } catch (RuntimeException exception) {
+                if (firstFailure == null) {
+                    firstFailure = exception;
+                }
+            }
+        }
+
+        if (firstFailure != null) {
+            compensateUploadedFiles(uploadedUrls, compensationInProgress);
+            throw unwrapAsyncFailure(firstFailure);
+        }
+
+        // 모든 비동기 작업이 성공한 경우에만 DB에 저장한다.
         List<Photo> savedPhotos = new ArrayList<>();
-
         try {
-            for (CompletableFuture<Photo> future : futures) {
-                Photo photo = future.join(); // 각 작업 완료될 때까지 대기
-                uploadedPhotos.add(photo);  // GCS 업로드 완료 목록에 추가
-
+            for (Photo photo : processedPhotos) {
                 long dbStart = System.currentTimeMillis();
                 Photo saved = photoRepository.save(photo);
                 log.info("DB 저장 소요시간: {}ms", System.currentTimeMillis() - dbStart);
                 savedPhotos.add(saved);
             }
-        } catch (Exception e) {
-            // DB 저장 실패 시 이미 GCS에 올라간 파일들 모두 삭제
-            log.error("❌ DB 저장 실패, GCS 파일 롤백 시작 - 삭제 대상: {}장", uploadedPhotos.size());
-            for (Photo photo : uploadedPhotos) {
-                try {
-                    gcsService.deleteFile(photo.getFilePath());
-                    log.info("🗑️ GCS 롤백 삭제: {}", photo.getFilePath());
-                } catch (Exception deleteException) {
-                    log.error("❌ GCS 롤백 삭제 실패: {}", photo.getFilePath(), deleteException);
-                }
-            }
-            throw e; // 예외 다시 던져서 트랜잭션 롤백
+
+            // 지연된 SQL 오류를 메서드 안에서 최대한 빨리 확인한다.
+            photoRepository.flush();
+        } catch (RuntimeException exception) {
+            compensateUploadedFiles(uploadedUrls, compensationInProgress);
+            throw exception;
         }
 
         log.info("===== 사진 업로드 완료: 총 소요시간 {}ms =====", System.currentTimeMillis() - totalStart);
 
         return savedPhotos;
+    }
+
+    private void registerUploadRollbackCompensation(
+            Queue<String> uploadedUrls,
+            AtomicBoolean compensationInProgress
+    ) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive() ||
+                !TransactionSynchronizationManager.isActualTransactionActive()) {
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    compensateUploadedFiles(uploadedUrls, compensationInProgress);
+                }
+            }
+        });
+    }
+
+    private void compensateUploadedFiles(
+            Queue<String> uploadedUrls,
+            AtomicBoolean compensationInProgress
+    ) {
+        if (uploadedUrls.isEmpty() || !compensationInProgress.compareAndSet(false, true)) {
+            return;
+        }
+
+        try {
+            List<String> urlsToDelete = new ArrayList<>(uploadedUrls);
+            log.warn("R2 업로드 보상 삭제 시작 - 대상: {}개", urlsToDelete.size());
+
+            for (String fileUrl : urlsToDelete) {
+                try {
+                    gcsService.deleteFile(fileUrl);
+                    uploadedUrls.remove(fileUrl);
+                    log.info("🗑️ R2 업로드 보상 삭제: {}", fileUrl);
+                } catch (Exception deleteException) {
+                    // 실패 URL은 큐에 남겨 트랜잭션 종료 콜백에서 한 번 더 시도할 수 있게 한다.
+                    log.error("R2 업로드 보상 삭제 실패 - 재삭제 필요: {}", fileUrl, deleteException);
+                }
+            }
+        } finally {
+            compensationInProgress.set(false);
+        }
+    }
+
+    private RuntimeException unwrapAsyncFailure(RuntimeException exception) {
+        Throwable cause = exception.getCause();
+        if (cause instanceof RuntimeException runtimeException) {
+            return runtimeException;
+        }
+        return exception;
     }
 
     /**
@@ -391,8 +464,8 @@ public class PhotoService {
             travel.updateRepresentativePhoto(null);
         }
 
-        // GCS 파일 삭제
-        gcsService.deleteFile(photo.getFilePath());
+        // DB 삭제 후에도 사용할 수 있도록 R2 URL을 미리 보관한다.
+        String fileUrlToDelete = photo.getFilePath();
 
         // DB 삭제
         photoRepository.delete(photo);
@@ -413,7 +486,43 @@ public class PhotoService {
             }
         }
 
+        // 모든 DB 작업이 커밋된 경우에만 외부 저장소 파일을 삭제한다.
+        deleteR2FilesAfterCommit(List.of(fileUrlToDelete));
+
         return photoId;
+    }
+
+    private void deleteR2FilesAfterCommit(List<String> fileUrls) {
+        if (fileUrls.isEmpty()) {
+            return;
+        }
+
+        List<String> immutableFileUrls = List.copyOf(fileUrls);
+        if (TransactionSynchronizationManager.isSynchronizationActive() &&
+                TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteR2FilesSafely(immutableFileUrls);
+                }
+            });
+            return;
+        }
+
+        log.warn("활성 트랜잭션이 없어 R2 파일을 즉시 삭제합니다.");
+        deleteR2FilesSafely(immutableFileUrls);
+    }
+
+    private void deleteR2FilesSafely(List<String> fileUrls) {
+        for (String fileUrl : fileUrls) {
+            try {
+                gcsService.deleteFile(fileUrl);
+                log.info("🗑️ DB 커밋 후 R2 파일 삭제: {}", fileUrl);
+            } catch (Exception exception) {
+                // DB는 이미 커밋됐으므로 예외를 전파해 성공한 요청을 500으로 바꾸지 않는다.
+                log.error("DB 커밋 후 R2 파일 삭제 실패 - 재삭제 필요: {}", fileUrl, exception);
+            }
+        }
     }
 
     /**
