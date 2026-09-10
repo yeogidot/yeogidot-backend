@@ -81,6 +81,47 @@ class TravelDetailNPlusOneQueryCountTest {
         );
     }
 
+    @Test
+    void LEFT_JOIN_FETCH는_빈_연관관계에서도_상위_엔티티를_누락하지_않는다() {
+        User owner = persistOwner();
+
+        Travel travelWithoutDays = persistTravel(owner, "no-days");
+
+        Travel travelWithEmptyDay = persistTravel(owner, "empty-day");
+        persistDay(travelWithEmptyDay, 1);
+
+        Travel travelWithPhotoWithoutComments = persistTravel(owner, "photo-without-comments");
+        TravelDay dayWithoutLog = persistDay(travelWithPhotoWithoutComments, 1);
+        persistPhoto(owner, dayWithoutLog, "no-comments.jpg");
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Comparison noDays = compareBothWays(travelWithoutDays.getId());
+        Comparison emptyDay = compareBothWays(travelWithEmptyDay.getId());
+        Comparison photoWithoutComments = compareBothWays(travelWithPhotoWithoutComments.getId());
+
+        assertSameResultAndFourFetchQueries(noDays);
+        assertSameResultAndFourFetchQueries(emptyDay);
+        assertSameResultAndFourFetchQueries(photoWithoutComments);
+
+        assertThat(noDays.fetchJoinSnapshot().days()).isEmpty();
+
+        DaySnapshot emptyDaySnapshot = emptyDay.fetchJoinSnapshot().days().getFirst();
+        assertThat(emptyDaySnapshot.photos()).isEmpty();
+        assertThat(emptyDaySnapshot.logIds()).isEmpty();
+
+        DaySnapshot photoDaySnapshot = photoWithoutComments.fetchJoinSnapshot().days().getFirst();
+        assertThat(photoDaySnapshot.logIds()).isEmpty();
+        assertThat(photoDaySnapshot.photos()).hasSize(1);
+        assertThat(photoDaySnapshot.photos().getFirst().commentIds()).isEmpty();
+    }
+
+    private void assertSameResultAndFourFetchQueries(Comparison comparison) {
+        assertThat(comparison.fetchJoinSnapshot()).isEqualTo(comparison.lazySnapshot());
+        assertThat(comparison.fetchJoinQueryCount()).isEqualTo(4L);
+    }
+
     private Comparison compareBothWays(Long travelId) {
         entityManager.clear();
         statistics.clear();
@@ -144,6 +185,39 @@ class TravelDetailNPlusOneQueryCountTest {
                 .build();
         entityManager.persist(owner);
         return owner;
+    }
+
+    private Travel persistTravel(User owner, String name) {
+        LocalDate date = LocalDate.of(2026, 2, 1);
+        Travel travel = Travel.builder()
+                .user(owner)
+                .title("N+1-empty-" + name)
+                .startDate(date)
+                .endDate(date)
+                .build();
+        entityManager.persist(travel);
+        return travel;
+    }
+
+    private TravelDay persistDay(Travel travel, int dayNumber) {
+        TravelDay day = TravelDay.builder()
+                .travel(travel)
+                .dayNumber(dayNumber)
+                .date(travel.getStartDate().plusDays(dayNumber - 1L))
+                .build();
+        entityManager.persist(day);
+        return day;
+    }
+
+    private void persistPhoto(User owner, TravelDay day, String name) {
+        Photo photo = Photo.builder()
+                .user(owner)
+                .travelDay(day)
+                .filePath("https://example.test/empty/" + name)
+                .originalName(name)
+                .takenAt(LocalDateTime.of(day.getDate(), java.time.LocalTime.NOON))
+                .build();
+        entityManager.persist(photo);
     }
 
     private Long persistTravelGraph(
