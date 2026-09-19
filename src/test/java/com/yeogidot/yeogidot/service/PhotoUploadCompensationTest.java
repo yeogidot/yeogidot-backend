@@ -51,6 +51,8 @@ class PhotoUploadCompensationTest {
     private GeoCodingService geoCodingService;
     @Mock
     private TravelDayRepository travelDayRepository;
+    @Mock
+    private R2DeletionTaskService r2DeletionTasks;
 
     private PhotoService photoService;
     private User owner;
@@ -64,7 +66,8 @@ class PhotoUploadCompensationTest {
                 geoCodingService,
                 new ObjectMapper(),
                 travelDayRepository,
-                new OwnershipValidator()
+                new OwnershipValidator(),
+                r2DeletionTasks
         );
 
         owner = User.builder()

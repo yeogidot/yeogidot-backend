@@ -10,9 +10,11 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -105,5 +107,33 @@ public class GcsService {
 
         s3Client.deleteObject(deleteRequest);
         log.info("R2 파일 삭제 완료: {}", objectName);
+    }
+
+    /** 작업자는 잘못된 URL을 성공으로 간주하면 안 된다. 기존 삭제 경로와 구분한다. */
+    public void deleteFileStrict(String fileUrl) {
+        if (publicUrl == null || publicUrl.isBlank()) {
+            throw new IllegalStateException("R2 public URL 설정이 없습니다.");
+        }
+        // uploadFile()이 만든 URL과 같은 접두사를 사용해야 실제 저장된 키를 얻는다.
+        String prefix = publicUrl + "/";
+        if (fileUrl == null || !fileUrl.startsWith(prefix) || fileUrl.length() == prefix.length()) {
+            throw new IllegalArgumentException("설정된 R2 저장소의 파일 URL이 아닙니다.");
+        }
+        String key = fileUrl.substring(prefix.length());
+        DeleteObjectRequest request = DeleteObjectRequest.builder()
+                .bucket(bucketName).key(key)
+                .overrideConfiguration(config -> config
+                        .apiCallTimeout(Duration.ofSeconds(30))
+                        .apiCallAttemptTimeout(Duration.ofSeconds(10)))
+                .build();
+        try {
+            s3Client.deleteObject(request);
+        } catch (S3Exception exception) {
+            // 이미 없는 개체만 성공으로 취급한다. NoSuchBucket 등 다른 404는 삼키지 않는다.
+            if (exception.statusCode() != 404 || exception.awsErrorDetails() == null
+                    || !"NoSuchKey".equals(exception.awsErrorDetails().errorCode())) {
+                throw exception;
+            }
+        }
     }
 }

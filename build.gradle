@@ -61,6 +61,10 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 별도 JVM 재시작 테스트에 동일한 테스트 런타임만 전달한다. 운영 설정은 로드하지 않는다.
+	doFirst {
+		systemProperty 'r2.recovery.test.classpath', sourceSets.test.runtimeClasspath.asPath
+	}
 }
 configurations.all {
 	resolutionStrategy {

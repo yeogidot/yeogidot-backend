@@ -47,8 +47,8 @@ import static org.mockito.Mockito.when;
 /**
  * 삭제 기능의 DB 트랜잭션과 R2 파일 삭제 순서를 검증한다.
  *
- * <p>운영 코드 수정 전에는 8개 테스트가 모두 실패하는 것이 기준선이다.
- * 운영 코드 수정 후에는 같은 테스트가 모두 통과해야 한다.</p>
+ * <p>기존 커밋 후 삭제 검증에서 단일 사진 경로만 작업 저장 방식으로 변경했다.
+ * 사진 삭제와 작업 저장의 실제 원자성은 PhotoDeletionFailureIntegrationTest에서 검증한다.</p>
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -88,6 +88,8 @@ class DeletionR2ConsistencyTest {
     private LoginAttemptService loginAttemptService;
     @Mock
     private StringRedisTemplate redisTemplate;
+    @Mock
+    private R2DeletionTaskService r2DeletionTasks;
 
     private TravelService travelService;
     private PhotoService photoService;
@@ -118,7 +120,8 @@ class DeletionR2ConsistencyTest {
                 geoCodingService,
                 objectMapper,
                 travelDayRepository,
-                new OwnershipValidator()
+                new OwnershipValidator(),
+                r2DeletionTasks
         );
 
         authService = new AuthService(
@@ -198,8 +201,12 @@ class DeletionR2ConsistencyTest {
     }
 
     @Test
-    void 단일_사진삭제는_DB_커밋후_R2파일을_삭제한다() throws InterruptedException {
-        assertR2DeletedAfterCommit(() -> photoService.deletePhoto(PHOTO_ID, USER_ID));
+    void 단일_사진삭제는_작업을_저장하고_R2를_직접_호출하지_않는다() {
+        executeInTransaction(new RecordingTransactionManager(false),
+                () -> photoService.deletePhoto(PHOTO_ID, USER_ID));
+        verify(r2DeletionTasks).enqueue(PHOTO_URL);
+        verify(gcsService, never()).deleteFile(PHOTO_URL);
+        verify(gcsService, never()).deleteFileStrict(PHOTO_URL);
     }
 
     @Test
