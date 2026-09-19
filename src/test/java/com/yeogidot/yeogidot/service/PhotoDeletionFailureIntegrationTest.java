@@ -76,12 +76,16 @@ class PhotoDeletionFailureIntegrationTest {
 
     @BeforeEach
     void resetFakeStorageAndCheckDatabase() throws Exception {
+        verifyTestDatabase(dataSource);
         reset(gcsService);
         storedFiles.clear();
         deletionObservedCommittedDb.set(false);
         clock.reset();
         taskRepository.deleteAll();
-        try (var connection = dataSource.getConnection()) {
+    }
+
+    protected void verifyTestDatabase(DataSource source) throws Exception {
+        try (var connection = source.getConnection()) {
             assertThat(connection.getMetaData().getURL()).startsWith("jdbc:h2:mem:");
         }
     }
