@@ -53,9 +53,11 @@ class R2DeletionMySqlTestConfiguration extends R2DeletionTestConfiguration {
                 "db/manual/20260917_create_r2_deletion_task.sql")).execute(source);
         System.out.println("R2 MySQL test: version=" + jdbc.queryForObject("SELECT VERSION()", String.class)
                 + ", isolation=" + jdbc.queryForObject("SELECT @@transaction_isolation", String.class)
-                + ", schema=" + base + "_" + suffix + ", storage=FAKE, task DDL=manual");
+                + ", schema=" + base + "_" + suffix + ", storage=" + storageDescription() + ", task DDL=manual");
         return source;
     }
+
+    protected String storageDescription() { return "FAKE"; }
 
     @Override
     @Bean
