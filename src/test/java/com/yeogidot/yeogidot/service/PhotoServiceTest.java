@@ -34,6 +34,8 @@ class PhotoServiceTest {
     private ObjectMapper objectMapper;
     @Mock
     private TravelDayRepository travelDayRepository;
+    @Mock
+    private R2DeletionTaskService r2DeletionTasks;
 
     private PhotoService photoService;
 
@@ -46,7 +48,8 @@ class PhotoServiceTest {
                 geoCodingService,
                 objectMapper,
                 travelDayRepository,
-                new OwnershipValidator()
+                new OwnershipValidator(),
+                r2DeletionTasks
         );
     }
 

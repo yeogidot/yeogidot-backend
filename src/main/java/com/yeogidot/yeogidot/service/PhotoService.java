@@ -52,6 +52,7 @@ public class PhotoService {
     private final ObjectMapper objectMapper;
     private final TravelDayRepository travelDayRepository;
     private final OwnershipValidator ownershipValidator;
+    private final R2DeletionTaskService r2DeletionTasks;
 
     /**
      * 프론트엔드에서 받는 메타데이터 DTO
@@ -486,43 +487,10 @@ public class PhotoService {
             }
         }
 
-        // 모든 DB 작업이 커밋된 경우에만 외부 저장소 파일을 삭제한다.
-        deleteR2FilesAfterCommit(List.of(fileUrlToDelete));
+        // 사진 삭제와 작업 저장이 함께 커밋/롤백된다. 실제 R2 삭제는 작업자가 수행한다.
+        r2DeletionTasks.enqueue(fileUrlToDelete);
 
         return photoId;
-    }
-
-    private void deleteR2FilesAfterCommit(List<String> fileUrls) {
-        if (fileUrls.isEmpty()) {
-            return;
-        }
-
-        List<String> immutableFileUrls = List.copyOf(fileUrls);
-        if (TransactionSynchronizationManager.isSynchronizationActive() &&
-                TransactionSynchronizationManager.isActualTransactionActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    deleteR2FilesSafely(immutableFileUrls);
-                }
-            });
-            return;
-        }
-
-        log.warn("활성 트랜잭션이 없어 R2 파일을 즉시 삭제합니다.");
-        deleteR2FilesSafely(immutableFileUrls);
-    }
-
-    private void deleteR2FilesSafely(List<String> fileUrls) {
-        for (String fileUrl : fileUrls) {
-            try {
-                gcsService.deleteFile(fileUrl);
-                log.info("🗑️ DB 커밋 후 R2 파일 삭제: {}", fileUrl);
-            } catch (Exception exception) {
-                // DB는 이미 커밋됐으므로 예외를 전파해 성공한 요청을 500으로 바꾸지 않는다.
-                log.error("DB 커밋 후 R2 파일 삭제 실패 - 재삭제 필요: {}", fileUrl, exception);
-            }
-        }
     }
 
     /**
