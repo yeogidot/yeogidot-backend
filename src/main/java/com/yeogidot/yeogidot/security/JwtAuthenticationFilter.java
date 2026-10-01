@@ -37,7 +37,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
 
         // 비밀번호 변경 / 회원탈퇴는 JWT 인증 필요 → 필터에서 제외하지 않음
-        if (path.equals("/api/auth/password") || path.equals("/api/auth/account")) {
+        if (path.equals("/api/auth/password") || path.equals("/api/auth/account")
+                || path.equals("/api/auth/me") || path.equals("/api/auth/nickname")) {
             return false;
         }
 

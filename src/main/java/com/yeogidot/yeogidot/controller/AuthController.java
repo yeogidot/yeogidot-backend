@@ -4,6 +4,8 @@ import com.yeogidot.yeogidot.dto.ChangePasswordRequest;
 import com.yeogidot.yeogidot.dto.DeleteAccountRequest;
 import com.yeogidot.yeogidot.dto.LoginRequest;
 import com.yeogidot.yeogidot.dto.SignupRequest;
+import com.yeogidot.yeogidot.dto.NicknameRequest;
+import com.yeogidot.yeogidot.dto.MyProfileResponse;
 import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.exception.UnauthenticatedException;
 import com.yeogidot.yeogidot.repository.UserRepository;
@@ -34,7 +36,7 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
 
-    @Operation(summary = "회원가입", description = "새로운 사용자 계정을 생성합니다")
+    @Operation(summary = "회원가입", description = "계정을 생성합니다. nickname은 전환 기간에 생략 가능하며, 입력 시 2~20자 한글/영문/숫자/밑줄만 허용합니다. 앞뒤 공백 제거와 NFC 정규화 후 대소문자까지 동일한 닉네임만 중복으로 판단하며, 중복 시 409를 반환합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "회원가입 성공",
                     content = @Content(mediaType = "application/json",
@@ -51,6 +53,7 @@ public class AuthController {
                                     """)))
     })
     @PostMapping("/signup")
+    @ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임 (NICKNAME_ALREADY_EXISTS)")
     public ResponseEntity<String> signup(
             @RequestBody SignupRequest request,
             HttpServletRequest httpRequest) {
@@ -161,6 +164,25 @@ public class AuthController {
 
         authService.deleteAccount(currentUser.getId(), request, token);
         return ResponseEntity.ok(Map.of("message", "회원탈퇴가 완료되었습니다."));
+    }
+
+    @Operation(summary = "내 정보 조회", description = "로그인한 회원의 닉네임을 조회합니다. nicknameRequired가 true이면 닉네임 설정이 필요합니다.")
+    @GetMapping("/me")
+    public ResponseEntity<MyProfileResponse> me() {
+        return ResponseEntity.ok(MyProfileResponse.from(getCurrentUser()));
+    }
+
+    @Operation(summary = "닉네임 설정 및 변경", description = "로그인한 회원 본인의 닉네임을 설정합니다. 형식 오류는 400, 중복은 409입니다. 앞뒤 공백 제거와 NFC 정규화 후 대소문자까지 동일한 닉네임만 중복으로 판단합니다.")
+    @PatchMapping("/nickname")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "닉네임 설정 또는 변경 성공"),
+            @ApiResponse(responseCode = "400", description = "닉네임 형식 오류"),
+            @ApiResponse(responseCode = "401", description = "인증 필요"),
+            @ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임 (NICKNAME_ALREADY_EXISTS)")
+    })
+    public ResponseEntity<MyProfileResponse> changeNickname(@RequestBody NicknameRequest request) {
+        User user = getCurrentUser();
+        return ResponseEntity.ok(authService.changeNickname(user.getId(), request.nickname()));
     }
 
     /**

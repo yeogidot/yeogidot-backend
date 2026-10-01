@@ -59,6 +59,7 @@ public class SecurityConfig {
                         // 인증 필요 - 비밀번호 변경, 회원탈퇴 (permitAll 범위에서 명시적으로 제외)
                         .requestMatchers(HttpMethod.PATCH, "/api/auth/password").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/auth/account").authenticated()
+                        .requestMatchers("/api/auth/me", "/api/auth/nickname").authenticated()
 
                         // 인증 불필요 경로
                         .requestMatchers(

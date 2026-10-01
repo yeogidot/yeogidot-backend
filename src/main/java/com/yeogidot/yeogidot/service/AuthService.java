@@ -4,6 +4,10 @@ import com.yeogidot.yeogidot.dto.ChangePasswordRequest;
 import com.yeogidot.yeogidot.dto.DeleteAccountRequest;
 import com.yeogidot.yeogidot.dto.LoginRequest;
 import com.yeogidot.yeogidot.dto.SignupRequest;
+import com.yeogidot.yeogidot.dto.MyProfileResponse;
+import com.yeogidot.yeogidot.entity.Nickname;
+import com.yeogidot.yeogidot.exception.DuplicateNicknameException;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.yeogidot.yeogidot.exception.TooManyRequestsException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.concurrent.TimeUnit;
@@ -63,11 +67,16 @@ public class AuthService {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
 
+        Nickname nickname = request.getNickname() == null ? null : Nickname.of(request.getNickname());
+
         // 기본 입력 검증을 통과한 요청만 회원가입 시도 횟수로 카운트
         checkSignupRateLimit(clientIp);
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
+        }
+        if (nickname != null && userRepository.existsByNicknameKey(nickname.key())) {
+            throw new DuplicateNicknameException();
         }
 
         User user = User.builder()
@@ -75,8 +84,43 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .build();
 
-        userRepository.save(user);
+        if (nickname != null) {
+            user.changeNickname(nickname.display());
+        }
+        saveUserWithNicknameCheck(user);
 
+    }
+
+    @Transactional
+    public MyProfileResponse changeNickname(Long userId, String input) {
+        Nickname nickname = Nickname.of(input);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+        if (userRepository.existsByNicknameKeyAndIdNot(nickname.key(), userId)) {
+            throw new DuplicateNicknameException();
+        }
+        user.changeNickname(nickname.display());
+        saveUserWithNicknameCheck(user);
+        return MyProfileResponse.from(user);
+    }
+
+    private void saveUserWithNicknameCheck(User user) {
+        try {
+            // 사전 조회를 동시에 통과한 요청도 DB UNIQUE가 최종 차단한다.
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException exception) {
+            for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+                if (cause instanceof org.hibernate.exception.ConstraintViolationException violation) {
+                    String constraint = violation.getConstraintName();
+                    if (constraint != null && constraint.toLowerCase(java.util.Locale.ROOT)
+                            .contains("uk_users_nickname_key")) {
+                        throw new DuplicateNicknameException();
+                    }
+                }
+            }
+            // 이메일 중복 등 다른 무결성 오류를 닉네임 중복으로 오인하지 않는다.
+            throw exception;
+        }
     }
 
     /**
