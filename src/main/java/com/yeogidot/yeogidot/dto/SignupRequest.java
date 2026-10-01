@@ -9,6 +9,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class SignupRequest {
     private String email;
+    // 구버전 앱과 기존 가입 계약을 위해 전환 기간에는 생략 가능하다.
+    private String nickname;
     private String password;
     private String password_check;
     private Boolean privacy_policy_agreed;

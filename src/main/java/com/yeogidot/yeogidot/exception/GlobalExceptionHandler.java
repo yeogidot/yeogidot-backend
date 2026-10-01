@@ -35,6 +35,15 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(DuplicateNicknameException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateNickname(DuplicateNicknameException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "status", 409,
+                "error", "NICKNAME_ALREADY_EXISTS",
+                "message", e.getMessage()
+        ));
+    }
+
     /**
      * ===== 인증/인가 예외 (Spring Security) =====
      */

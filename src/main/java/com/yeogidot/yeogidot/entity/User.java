@@ -1,6 +1,7 @@
 package com.yeogidot.yeogidot.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import java.time.Instant;
 
@@ -11,7 +12,8 @@ import java.time.Instant;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints =
+        @UniqueConstraint(name = "uk_users_nickname_key", columnNames = "nickname_key"))
 public class User extends BaseTimeEntity {
 
     @Id
@@ -21,6 +23,31 @@ public class User extends BaseTimeEntity {
 
     @Column(nullable = false, unique = true)
     private String email;
+
+    // 전환 기간에는 기존 회원과 구버전 앱의 가입을 위해 null을 허용한다.
+    @Column(length = 20)
+    private String nickname;
+
+    @JsonIgnore
+    @Column(name = "nickname_key", length = 20)
+    private String nicknameKey;
+
+    public void changeNickname(String value) {
+        Nickname normalized = Nickname.of(value);
+        this.nickname = normalized.display();
+        this.nicknameKey = normalized.key();
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeNickname() {
+        // Builder 등 다른 저장 경로에서도 표시 이름과 중복 키가 어긋나지 않게 한다.
+        if (nickname == null) {
+            nicknameKey = null;
+        } else {
+            changeNickname(nickname);
+        }
+    }
 
     @Column(nullable = false)
     private String password;
