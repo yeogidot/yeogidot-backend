@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -50,6 +51,7 @@ public class TravelDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CommentRequest {
+        @NotBlank(message = "댓글 내용을 입력해주세요.")
         private String content;
     }
 
@@ -128,6 +130,8 @@ public class TravelDto {
         private Long commentId;
         private String content;
         private LocalDateTime createdAt;
+        private Long writerId;
+        private String nickname; // 닉네임을 설정하지 않은 기존 회원은 null
     }
 
     // 일기 상세 정보

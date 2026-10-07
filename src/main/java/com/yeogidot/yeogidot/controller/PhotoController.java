@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -303,7 +304,7 @@ public class PhotoController {
     /**
      * 사진 코멘트 작성
      */
-    @Operation(summary = "사진 코멘트 작성", description = "특정 사진에 코멘트을 작성합니다")
+    @Operation(summary = "사진 댓글 작성", description = "로그인한 사용자는 같은 사진에 여러 댓글을 작성할 수 있습니다. 공유 열람 권한 정책은 별도입니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "코멘트 작성 성공"),
             @ApiResponse(
@@ -343,21 +344,58 @@ public class PhotoController {
     @PostMapping("/photos/{photoId}/comments")
     public ResponseEntity<?> createComment(
             @PathVariable Long photoId,
-            @RequestBody TravelDto.CommentRequest request
+            @Valid @RequestBody TravelDto.CommentRequest request
     ) {
         User user = getCurrentUser();
         Long cmentId = photoService.createComment(photoId, request, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "cmentId", cmentId,
+                "commentId", cmentId,
                 "message", "코멘트가 작성되었습니다."
         ));
+    }
+
+    @Operation(summary = "댓글 ID로 사진 댓글 수정", description = "해당 사진의 지정한 댓글을 작성자만 수정할 수 있습니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "수정 성공"),
+            @ApiResponse(responseCode = "400", description = "댓글 내용 누락 또는 공백"),
+            @ApiResponse(responseCode = "401", description = "인증 필요"),
+            @ApiResponse(responseCode = "403", description = "작성자가 아님"),
+            @ApiResponse(responseCode = "404", description = "댓글이 없거나 해당 사진의 댓글이 아님")
+    })
+    @PutMapping("/photos/{photoId}/comments/{commentId}")
+    public ResponseEntity<Void> updateCommentById(
+            @PathVariable Long photoId,
+            @PathVariable Long commentId,
+            @Valid @RequestBody TravelDto.CommentRequest request
+    ) {
+        photoService.updateComment(photoId, commentId, request, getCurrentUser());
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "댓글 ID로 사진 댓글 삭제", description = "해당 사진의 지정한 댓글을 작성자 또는 사진 소유자가 삭제할 수 있습니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "삭제 성공"),
+            @ApiResponse(responseCode = "401", description = "인증 필요"),
+            @ApiResponse(responseCode = "403", description = "작성자도 사진 소유자도 아님"),
+            @ApiResponse(responseCode = "404", description = "댓글이 없거나 해당 사진의 댓글이 아님")
+    })
+    @DeleteMapping("/photos/{photoId}/comments/{commentId}")
+    public ResponseEntity<Void> deleteCommentById(
+            @PathVariable Long photoId,
+            @PathVariable Long commentId
+    ) {
+        photoService.deleteComment(photoId, commentId, getCurrentUser());
+        return ResponseEntity.noContent().build();
     }
 
     /**
      * 사진 코멘트 수정
      */
-    @Operation(summary = "사진 코멘트 수정", description = "사진의 코멘트를 수정합니다")
+    @Operation(summary = "사진 코멘트 수정 (구버전)", deprecated = true,
+            description = "댓글이 하나인 사진만 처리합니다. 여러 개면 409 COMMENT_SELECTION_REQUIRED를 반환합니다. 댓글 ID API로 전환해주세요.")
     @ApiResponses({
+            @ApiResponse(responseCode = "409", description = "댓글이 여러 개이므로 댓글 ID 지정 필요"),
             @ApiResponse(responseCode = "200", description = "수정 성공"),
             @ApiResponse(
                     responseCode = "400",
@@ -412,7 +450,7 @@ public class PhotoController {
     @PutMapping("/photos/{photoId}/comments")
     public ResponseEntity<Void> updateComment(
             @PathVariable Long photoId,
-            @RequestBody TravelDto.CommentRequest request
+            @Valid @RequestBody TravelDto.CommentRequest request
     ) {
         User user = getCurrentUser();
         photoService.updateCommentByPhotoId(photoId, request, user);
@@ -422,8 +460,10 @@ public class PhotoController {
     /**
      * 사진 코멘트 삭제
      */
-    @Operation(summary = "사진 코멘트 삭제", description = "사진의 코멘트를 삭제합니다")
+    @Operation(summary = "사진 코멘트 삭제 (구버전)", deprecated = true,
+            description = "댓글이 하나인 사진만 처리합니다. 여러 개면 409 COMMENT_SELECTION_REQUIRED를 반환합니다. 댓글 ID API로 전환해주세요.")
     @ApiResponses({
+            @ApiResponse(responseCode = "409", description = "댓글이 여러 개이므로 댓글 ID 지정 필요"),
             @ApiResponse(responseCode = "204", description = "삭제 성공"),
             @ApiResponse(
                     responseCode = "400",

@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeogidot.yeogidot.dto.PhotoDto;
 import com.yeogidot.yeogidot.dto.TravelDto;
 import com.yeogidot.yeogidot.entity.*;
+import com.yeogidot.yeogidot.exception.BadRequestException;
+import com.yeogidot.yeogidot.exception.CommentSelectionRequiredException;
+import com.yeogidot.yeogidot.exception.ResourceNotFoundException;
 import com.yeogidot.yeogidot.repository.CommentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
@@ -349,55 +352,92 @@ public class PhotoService {
                 .collect(Collectors.toList());
     }
 
-    // 댓글 작성 - 누구나 가능
+    // 로그인한 사용자는 같은 사진에 여러 댓글을 작성할 수 있다. 공유 접근 정책은 별도 적용한다.
     @Transactional
     public Long createComment(Long photoId, TravelDto.CommentRequest request, User user) {
-        Photo photo = photoRepository.findById(photoId)
+        validateCommentContent(request);
+        Photo photo = photoRepository.findByIdForCommentMutation(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사진입니다."));
 
-        // 권한 검증 제거 (누구나 댓글 작성 가능)
         Comment cment = Comment.builder()
                 .photo(photo)
-                .writer(user)  // ⭐ 작성자 저장
+                .writer(user)
                 .content(request.getContent())
                 .build();
 
         return commentRepository.save(cment).getId();
     }
 
-    // 사진 ID로 댓글 수정
+    // 댓글 ID와 사진 ID를 함께 확인해 다른 사진의 댓글을 변경하지 못하게 한다.
     @Transactional
-    public void updateCommentByPhotoId(Long photoId, TravelDto.CommentRequest request, User user) {
-        // photoId로 댓글 찾기
-        Comment cment = commentRepository.findByPhotoId(photoId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 사진에 댓글이 존재하지 않습니다."));
-
-        // 작성자 본인 확인
-        if (!cment.getWriter().getId().equals(user.getId())) {
-            throw new SecurityException("본인의 댓글만 수정할 수 있습니다.");
-        }
-
-        // 내용 수정
-        cment.updateContent(request.getContent());
+    public void updateComment(Long photoId, Long commentId, TravelDto.CommentRequest request, User user) {
+        validateCommentContent(request);
+        Comment comment = findComment(photoId, commentId);
+        validateCommentWriter(comment, user);
+        comment.updateContent(request.getContent());
     }
 
-    // 사진 ID로 댓글 삭제
+    @Transactional
+    public void deleteComment(Long photoId, Long commentId, User user) {
+        Comment comment = findComment(photoId, commentId);
+        validateCommentDeletion(comment, user);
+        commentRepository.delete(comment);
+    }
+
+    // 구버전 API: 댓글이 정확히 하나일 때만 수정한다.
+    @Transactional
+    public void updateCommentByPhotoId(Long photoId, TravelDto.CommentRequest request, User user) {
+        validateCommentContent(request);
+        Comment comment = findSingleLegacyComment(photoId);
+        validateCommentWriter(comment, user);
+        comment.updateContent(request.getContent());
+    }
+
+    // 구버전 API: 여러 댓글 중 임의의 댓글을 삭제하지 않는다.
     @Transactional
     public void deleteCommentByPhotoId(Long photoId, User user) {
-        // photoId로 댓글 찾기
-        Comment cment = commentRepository.findByPhotoId(photoId)
+        Comment comment = findSingleLegacyComment(photoId);
+        validateCommentDeletion(comment, user);
+        commentRepository.delete(comment);
+    }
+
+    private Comment findComment(Long photoId, Long commentId) {
+        return commentRepository.findByIdAndPhotoId(commentId, photoId)
+                .orElseThrow(() -> new ResourceNotFoundException("댓글", commentId));
+    }
+
+    private Comment findSingleLegacyComment(Long photoId) {
+        // 등록과 같은 사진 잠금을 사용해 단건 확인 도중 두 번째 댓글이 들어오지 않게 한다.
+        photoRepository.findByIdForCommentMutation(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 사진에 댓글이 존재하지 않습니다."));
+        List<Comment> comments = commentRepository.findTop2ByPhotoIdOrderByIdAsc(photoId);
+        if (comments.isEmpty()) {
+            throw new IllegalArgumentException("해당 사진에 댓글이 존재하지 않습니다.");
+        }
+        if (comments.size() > 1) {
+            throw new CommentSelectionRequiredException();
+        }
+        return comments.getFirst();
+    }
 
-        // 권한 확인
-        boolean isWriter = cment.getWriter().getId().equals(user.getId());
-        boolean isPhotoOwner = cment.getPhoto().getUser().getId().equals(user.getId());
+    private void validateCommentWriter(Comment comment, User user) {
+        if (!comment.isWrittenBy(user.getId())) {
+            throw new SecurityException("본인의 댓글만 수정할 수 있습니다.");
+        }
+    }
 
+    private void validateCommentDeletion(Comment comment, User user) {
+        boolean isWriter = comment.isWrittenBy(user.getId());
+        boolean isPhotoOwner = comment.getPhoto().getUser().getId().equals(user.getId());
         if (!isWriter && !isPhotoOwner) {
             throw new SecurityException("댓글을 삭제할 권한이 없습니다.");
         }
+    }
 
-        // 삭제
-        commentRepository.delete(cment);
+    private void validateCommentContent(TravelDto.CommentRequest request) {
+        if (request == null || request.getContent() == null || request.getContent().isBlank()) {
+            throw new BadRequestException("댓글 내용을 입력해주세요.");
+        }
     }
 
     /**
