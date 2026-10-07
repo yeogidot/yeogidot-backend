@@ -655,6 +655,8 @@ public class TravelService {
                                     .commentId(comment.getId())
                                     .content(comment.getContent())
                                     .createdAt(comment.getCreatedDate())
+                                    .writerId(comment.getWriter().getId())
+                                    .nickname(comment.getWriter().getNickname())
                                     .build())
                             .collect(Collectors.toList());
 

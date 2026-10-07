@@ -41,9 +41,10 @@ public interface TravelRepository extends JpaRepository<Travel, Long> {
            "WHERE td.travel.id = :travelId")
     List<TravelDay> findDaysWithPhotos(@Param("travelId") Long travelId);
 
-    // 3단계: Photos + Comments (별도 쿼리)
+    // 3단계: Photos + Comments + 댓글 작성자 (별도 쿼리)
     @Query("SELECT DISTINCT p FROM Photo p " +
-           "LEFT JOIN FETCH p.comments " +
+           "LEFT JOIN FETCH p.comments c " +
+           "LEFT JOIN FETCH c.writer " +
            "WHERE p.travelDay.travel.id = :travelId")
     List<Photo> findPhotosWithComments(@Param("travelId") Long travelId);
 

@@ -35,6 +35,15 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(CommentSelectionRequiredException.class)
+    public ResponseEntity<Map<String, Object>> handleCommentSelectionRequired(CommentSelectionRequiredException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "status", 409,
+                "error", "COMMENT_SELECTION_REQUIRED",
+                "message", e.getMessage()
+        ));
+    }
+
     @ExceptionHandler(DuplicateNicknameException.class)
     public ResponseEntity<Map<String, Object>> handleDuplicateNickname(DuplicateNicknameException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
