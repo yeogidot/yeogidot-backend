@@ -189,24 +189,70 @@ class PhotoDeletionFailureIntegrationTest {
         assertThat(taskRepository.count()).isZero();
     }
 
-    @Test
-    void 반복_실패는_간격을_늘리고_한도에서_중단한다() {
-        Fixture fixture = createFixture(false);
+    @ParameterizedTest(name = "반복 실패 한도: 여행 일차 소속={0}")
+    @ValueSource(booleans = {false, true})
+    void 반복_실패는_간격을_늘리고_한도에서_중단한다(boolean assignedToDay) {
+        Fixture fixture = createFixture(assignedToDay);
         configureStorageDelete(fixture, true);
         photoService.deletePhoto(fixture.photoId(), fixture.userId());
+        Long taskId = onlyTask().getId();
+        var createdAt = onlyTask().getCreatedAt();
+        assertThat(photoExistsInNewTransaction(fixture.photoId())).isFalse();
+        assertThat(storedFiles).containsKey(fixture.url());
+        assertThat(onlyTask().getStatus()).isEqualTo(R2DeletionTask.Status.PENDING);
+        assertThat(onlyTask().getAttemptCount()).isZero();
+        verify(gcsService, never()).deleteFileStrict(anyString());
+
         worker.runOnce();
+        assertThat(deletionObservedCommittedDb.get()).isTrue();
+        assertThat(onlyTask().getStatus()).isEqualTo(R2DeletionTask.Status.PENDING);
+        assertThat(onlyTask().getAttemptCount()).isEqualTo(1);
+        assertThat(onlyTask().getAvailableAt()).isEqualTo(clock.instant().plusSeconds(1));
+        worker.runOnce(); // 첫 재시도 예약 시각 전에는 외부 삭제를 다시 호출하지 않는다.
+        verify(gcsService, times(1)).deleteFileStrict(fixture.url());
+
         clock.advance(1);
         worker.runOnce();
+        assertThat(onlyTask().getStatus()).isEqualTo(R2DeletionTask.Status.PENDING);
+        assertThat(onlyTask().getAttemptCount()).isEqualTo(2);
         assertThat(onlyTask().getAvailableAt()).isEqualTo(clock.instant().plusSeconds(2));
+        worker.runOnce(); // 두 번째 재시도 예약 시각 전에도 호출하지 않는다.
+        verify(gcsService, times(2)).deleteFileStrict(fixture.url());
+
         clock.advance(2);
         worker.runOnce();
-        assertThat(onlyTask().getStatus()).isEqualTo(R2DeletionTask.Status.FAILED);
-        assertThat(onlyTask().getLastError()).isEqualTo("IllegalStateException");
-        assertThat(onlyTask().getAttemptCount()).isEqualTo(3);
+        R2DeletionTask failedTask = taskRepository.findById(taskId).orElseThrow();
+        assertThat(photoExistsInNewTransaction(fixture.photoId())).isFalse();
+        assertThat(storedFiles).containsKey(fixture.url());
+        assertThat(taskRepository.count()).isEqualTo(1);
+        assertThat(failedTask.getStatus()).isEqualTo(R2DeletionTask.Status.FAILED);
+        assertThat(failedTask.getFileUrl()).isEqualTo(fixture.url());
+        assertThat(failedTask.getLastError()).isEqualTo("IllegalStateException");
+        assertThat(failedTask.getAttemptCount()).isEqualTo(3);
+        assertThat(failedTask.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(failedTask.getUpdatedAt()).isEqualTo(clock.instant());
+        assertThat(failedTask.getCompletedAt()).isNull();
+        assertThat(failedTask.getLeaseToken()).isNull();
+        verify(gcsService, times(3)).deleteFileStrict(fixture.url());
+
+        // 외부 장애가 해소돼도 FAILED는 자동 재개하지 않는다. 별도 재처리 기능이 필요한 기준선이다.
+        configureStorageDelete(fixture, false);
         clock.advance(3600);
+        assertThat(tasks.readyIds()).isEmpty();
+        assertThat(tasks.claim(taskId)).isEmpty();
         worker.runOnce();
         verify(gcsService, times(3)).deleteFileStrict(fixture.url());
+        R2DeletionTask retainedTask = taskRepository.findById(taskId).orElseThrow();
+        assertThat(retainedTask.getStatus()).isEqualTo(R2DeletionTask.Status.FAILED);
+        assertThat(retainedTask.getAttemptCount()).isEqualTo(3);
+        assertThat(retainedTask.getLastError()).isEqualTo(failedTask.getLastError());
+        assertThat(retainedTask.getUpdatedAt()).isEqualTo(failedTask.getUpdatedAt());
+        assertThat(taskRepository.count()).isEqualTo(1);
+        assertThat(photoExistsInNewTransaction(fixture.photoId())).isFalse();
         assertThat(storedFiles).containsKey(fixture.url());
+        System.out.printf("R2 FAILED baseline: assigned=%s, dbPhoto=0, remainingFile=1, "
+                        + "status=FAILED, attempts=3, deleteCalls=3, autoRetryAfterRecovery=0%n",
+                assignedToDay);
     }
 
     @Test
