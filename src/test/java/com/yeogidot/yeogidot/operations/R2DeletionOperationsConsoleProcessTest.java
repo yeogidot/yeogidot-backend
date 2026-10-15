@@ -47,7 +47,9 @@ class R2DeletionOperationsConsoleProcessTest {
             Path script = app.resolve("r2-ops");
             // Windows 체크아웃의 CRLF 여부와 관계없이 실제 배포와 동일한 LF 스크립트를 사용한다.
             Files.writeString(script, Files.readString(Path.of("scripts/r2-ops")).replace("\r\n", "\n"));
-            builder.command(bash.toString(), "-c", "export PATH=/usr/bin:/bin:$PATH; bash \"$1\"", "r2-wrapper-test",
+            // java.home/bin(아래에서 PATH 선두로 지정)을 /usr/bin의 다른 Java가 덮어쓰지 않게 한다.
+            // Git Bash 유틸리티 경로는 뒤에 보충하고 선택된 Java 경로는 실패 진단용으로 남긴다.
+            builder.command(bash.toString(), "-c", "export PATH=$PATH:/usr/bin:/bin; command -v java; bash \"$1\"", "r2-wrapper-test",
                     script.toString().replace('\\', '/'));
         }
         builder.environment().clear();
