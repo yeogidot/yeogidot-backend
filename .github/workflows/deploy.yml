@@ -27,6 +27,12 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean build -x test
 
+      - name: Verify R2 operations console
+        run: |
+          bash -n scripts/r2-ops
+          bash scripts/tests/test-r2-ops.sh
+          ./gradlew test --tests '*R2DeletionOperationsConsole*' --tests '*R2DeletionOperationsCliTest' --no-daemon
+
       # ---------------- SSH 설정 ----------------
       - name: Setup SSH
         run: |
@@ -51,13 +57,19 @@ jobs:
         run: |
           # JAR 파일 복사
           scp -i ~/.ssh/id_rsa build/libs/yeogidot-0.0.1-SNAPSHOT.jar ubuntu@134.185.96.154:~/
+          scp -i ~/.ssh/id_rsa scripts/r2-ops ubuntu@134.185.96.154:~/r2-ops.incoming
 
           ssh -i ~/.ssh/id_rsa ubuntu@134.185.96.154 << 'EOF'
+            set -e
+            # 설치만 한다. 콘솔 실행/실패 작업 재처리는 배포 중 수행하지 않는다.
+            bash -n ~/r2-ops.incoming
+            chmod 700 ~/r2-ops.incoming
             # 기존 프로세스 종료
             pkill -f yeogidot.jar || true
           
             # 새 JAR 파일로 교체
             mv ~/yeogidot-0.0.1-SNAPSHOT.jar ~/app/yeogidot.jar
+            mv ~/r2-ops.incoming ~/app/r2-ops
           
             # app 디렉토리로 이동 후 실행
             cd ~/app

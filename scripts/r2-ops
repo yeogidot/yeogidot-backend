@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# 서버의 yeogidot.jar와 같은 디렉토리에 설치한다. 비밀번호를 셸에서 해석하지 않는다.
+set +x
+set -euo pipefail
+
+if [[ ${1:-} == --help || ${1:-} == help ]]; then
+  printf '%s\n' 'Usage: ./r2-ops [--prompt]' \
+    'Default: read ONLY local DB settings from adjacent application-prod.properties.' \
+    'The config must be an owner-only regular file (chmod 600); it is never printed or sourced.' \
+    '--prompt: enter DB settings manually; password input requires a terminal.' \
+    'No server starts. No R2 requests. Retry always requires explicit confirmation.' \
+    'An uncertain retry is kept in .r2-ops/pending-request.json without passwords.' \
+    'Do not delete that file or generate a new request before checking the DB audit history.'
+  exit 0
+fi
+if (( $# > 1 )) || { (( $# == 1 )) && [[ $1 != --prompt ]]; }; then
+  printf '%s\n' 'Usage: ./r2-ops [--prompt]' >&2
+  exit 2
+fi
+
+app_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+if [[ ! -f "$app_dir/yeogidot.jar" ]]; then
+  printf '%s\n' 'Stopped: install r2-ops beside yeogidot.jar.' >&2
+  exit 2
+fi
+java_bin=$(command -v java) || { printf '%s\n' 'Java is required.' >&2; exit 2; }
+# PropertiesLauncher가 현재 디렉토리의 loader.properties를 읽지 않도록 빈 디렉토리에서 실행한다.
+work_dir=$(mktemp -d)
+trap 'rmdir -- "$work_dir"' EXIT
+cd -- "$work_dir"
+# JVM 옵션/loader 설정/기존 쓰기 승인/R2 키를 상속하지 않는다. 비밀번호는 Java 메모리에만 둔다.
+env -i PATH="$PATH" LANG=C.UTF-8 TERM="${TERM:-dumb}" \
+  "$java_bin" -Xmx128m -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 \
+  -Dloader.main=com.yeogidot.yeogidot.operations.R2DeletionOperationsConsole \
+  -cp "$app_dir/yeogidot.jar" org.springframework.boot.loader.launch.PropertiesLauncher \
+  "$app_dir" "$@"
