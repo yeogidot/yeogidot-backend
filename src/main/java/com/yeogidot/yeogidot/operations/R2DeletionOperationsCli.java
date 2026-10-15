@@ -13,13 +13,15 @@ import java.util.function.Function;
 public final class R2DeletionOperationsCli {
     private R2DeletionOperationsCli() { }
     public static void main(String[] args) {
-        int code = execute(args, System.getenv(), System.out, System.err, settings -> {
-            var source = new DriverManagerDataSource("jdbc:mysql://127.0.0.1:" + settings.port()
-                    + "/" + settings.database() + "?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
-                    + "&connectTimeout=3000&socketTimeout=10000", settings.username(), settings.password());
-            return new R2DeletionOperationsService(source, Clock.systemUTC());
-        });
+        int code = execute(args, System.getenv(), System.out, System.err, R2DeletionOperationsCli::operations);
         if (code != 0) System.exit(code);
+    }
+
+    static R2DeletionOperationsService operations(Settings settings) {
+        var source = new DriverManagerDataSource("jdbc:mysql://127.0.0.1:" + settings.port()
+                + "/" + settings.database() + "?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
+                + "&connectTimeout=3000&socketTimeout=10000", settings.username(), settings.password());
+        return new R2DeletionOperationsService(source, Clock.systemUTC());
     }
 
     static int execute(String[] args, Map<String, String> env, PrintStream out, PrintStream err,
