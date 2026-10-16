@@ -100,8 +100,9 @@ final class PhotoUploadResourceProcess {
                 uploadEntries.incrementAndGet();
                 uploadActive.incrementAndGet();
                 uploading.set(stat);
+                var stage = PhotoUploadAllocationProfiler.begin("upload", stat.request.round, stat.request.index, tracked.name);
                 try { return super.uploadFile(file); }
-                finally { uploading.remove(); uploadActive.decrementAndGet(); }
+                finally { PhotoUploadAllocationProfiler.finish(stage); uploading.remove(); uploadActive.decrementAndGet(); }
             }
         };
         ReflectionTestUtils.setField(storage, "bucketName", "local-benchmark-not-a-real-bucket");
@@ -125,7 +126,10 @@ final class PhotoUploadResourceProcess {
         Path fixture = Path.of(args[1]).resolve(profile + ".jpg");
         PhotoUploadResourceProcess process = new PhotoUploadResourceProcess();
         assertThat(ForkJoinPool.getCommonPoolParallelism()).isEqualTo(8);
-        Map<String, Object> evidence = process.measure(args[0], fixture, files, concurrency);
+        Map<String, Object> evidence;
+        try (var allocationRecording = PhotoUploadAllocationProfiler.startIfConfigured()) {
+            evidence = process.measure(args[0], fixture, files, concurrency);
+        }
         JSON.writerWithDefaultPrettyPrinter().writeValue(Path.of(args[2]).toFile(), evidence);
         System.out.println("UPLOAD_RESOURCE_RESULT " + JSON.writeValueAsString(evidence.get("summary")));
     }
@@ -133,9 +137,10 @@ final class PhotoUploadResourceProcess {
     @SuppressWarnings("unchecked") // requests에는 이 클래스에서 생성한 Map<String,Object> 목록만 들어간다.
     private Map<String, Object> measure(String scenario, Path fixture, int files, int concurrency) throws Exception {
         List<Map<String, Object>> rounds = new ArrayList<>();
+        List<Map<String, Object>> warmups = new ArrayList<>();
         ExecutorService callers = Executors.newFixedThreadPool(concurrency);
         try {
-            for (int i = 0; i < WARMUP_ROUNDS; i++) runRound(callers, fixture, files, concurrency, -1);
+            for (int i = 0; i < WARMUP_ROUNDS; i++) warmups.add(runRound(callers, fixture, files, concurrency, -1));
             for (int i = 0; i < MEASURED_ROUNDS; i++) rounds.add(runRound(callers, fixture, files, concurrency, i + 1));
         } finally {
             callers.shutdownNow();
@@ -160,6 +165,10 @@ final class PhotoUploadResourceProcess {
         result.put("waitingScope", "last validation stream close to GcsService entry; includes metadata parsing, submission, scheduling and semaphore wait");
         result.put("heapScope", "sampled JVM heap used including uncollected garbage; not RSS, exact allocation or per-image memory");
         result.put("rounds", rounds);
+        if (PhotoUploadAllocationProfiler.enabled()) {
+            result.put("allocationDiagnostic", "JFR enabled; separate diagnostic, do not compare timing with unprofiled baseline");
+            result.put("diagnosticWarmups", warmups);
+        }
         List<Double> latencies = rounds.stream().flatMap(r -> ((List<Map<String, Object>>) r.get("requests")).stream())
                 .map(r -> ((Number)r.get("serviceMs")).doubleValue()).toList();
         List<Map<String, Object>> requestRows = rounds.stream()
@@ -189,7 +198,7 @@ final class PhotoUploadResourceProcess {
         assertThat(validationActive.get()).isZero(); assertThat(uploadActive.get()).isZero();
         List<RequestStat> requests = new ArrayList<>();
         for (int i = 0; i < concurrency; i++) {
-            RequestStat request = new RequestStat(i, files);
+            RequestStat request = new RequestStat(round, i, files);
             for (int j = 0; j < files; j++) request.files.add(new TrackedFile(fixture, "photo-" + i + "-" + j + ".jpg", new FileStat(request)));
             request.metadata = JSON.writeValueAsString(request.files.stream().map(f -> Map.of("originalName", f.name, "takenAt", "2026-10-16T10:00:00")).toList());
             requests.add(request);
@@ -252,7 +261,7 @@ final class PhotoUploadResourceProcess {
         row.put("validationPeak", sampler.validationPeak); row.put("uploadPeak", sampler.uploadPeak);
         row.put("postValidationPendingPeak", sampler.pendingPeak); row.put("commonPoolQueuedPeak", sampler.queuedPeak);
         row.put("requests", requestRows); row.put("files", fileRows);
-        if (round < 0 && successes != concurrency) throw new AssertionError("Warmup failed: " + requestRows);
+        if (round < 0 && successes != concurrency && !PhotoUploadAllocationProfiler.enabled()) throw new AssertionError("Warmup failed: " + requestRows);
         return row;
     }
 
@@ -272,6 +281,7 @@ final class PhotoUploadResourceProcess {
             boolean validation = opens.getAndIncrement() == 0;
             InputStream original = Files.newInputStream(path);
             long begin = System.nanoTime();
+            var stage = validation ? PhotoUploadAllocationProfiler.begin("validation", stat.request.round, stat.request.index, name) : null;
             if (validation) validationActive.incrementAndGet();
             InputStream tracked = new FilterInputStream(original) {
                 private boolean closed;
@@ -279,6 +289,7 @@ final class PhotoUploadResourceProcess {
                     if (closed) return; closed = true;
                     try { super.close(); }
                     finally {
+                        PhotoUploadAllocationProfiler.finish(stage);
                         if (validation) {
                             stat.validationNs = System.nanoTime() - begin;
                             stat.request.validationSumNs.addAndGet(stat.validationNs);
@@ -319,11 +330,11 @@ final class PhotoUploadResourceProcess {
     }
 
     private static final class RequestStat {
-        final int index, expectedFiles; final AtomicInteger validated = new AtomicInteger(); final AtomicLong validationSumNs = new AtomicLong();
+        final int round, index, expectedFiles; final AtomicInteger validated = new AtomicInteger(); final AtomicLong validationSumNs = new AtomicLong();
         final List<TrackedFile> files = new ArrayList<>();
         String metadata; volatile long validationDoneNs, serviceNs; volatile boolean success; volatile String failure = "";
         volatile String failureDetail = ""; volatile List<String> failureStack = List.of();
-        RequestStat(int index, int expectedFiles) { this.index = index; this.expectedFiles = expectedFiles; }
+        RequestStat(int round, int index, int expectedFiles) { this.round = round; this.index = index; this.expectedFiles = expectedFiles; }
     }
     private static final class FileStat {
         final RequestStat request; volatile long validationNs, uploadStartNs, afterValidationUntilUploadNs, compressionSetupNs, mockUploadNs, encodedBytes;

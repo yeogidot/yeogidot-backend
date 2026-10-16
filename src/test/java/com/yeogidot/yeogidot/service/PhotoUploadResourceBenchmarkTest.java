@@ -71,7 +71,37 @@ class PhotoUploadResourceBenchmarkTest {
         assertThat(result.path("summary").path("observedHeapPeakBytes").asLong()).isPositive();
     }
 
+    @Order(3)
+    @ParameterizedTest(name = "allocation-{0}")
+    @ValueSource(strings = {"standard-1-1", "large-1-1", "large-1-5"})
+    @EnabledIfEnvironmentVariable(named = "RUN_UPLOAD_ALLOCATION_PROFILE", matches = "true")
+    void 실제_검증과_압축의_큰_배열_할당_위치를_기록한다(String condition) throws Exception {
+        Path fixtures = directory.resolve("allocation-fixtures");
+        if (!Files.isRegularFile(fixtures.resolve("fixtures.json"))) run("fixtures", fixtures, "allocation-fixtures", 256);
+        String name = "allocation-" + condition;
+        JsonNode result = run(condition, fixtures, name, 512, true);
+        JsonNode analysis = JSON.readTree(REPORT.resolve(name + "-allocations.json").toFile());
+        assertThat(analysis.path("dataLossBytes").asLong()).isZero();
+        assertThat(analysis.path("attributedLargeEvents").asLong()).isPositive();
+        assertThat(analysis.path("uploadIntervalPeak").asInt()).isBetween(1, 3);
+        // OOM 자체가 진단 대상이다. 다른 요청 실패는 성공으로 숨기지 않는다.
+        int expectedStages = 0;
+        for (String roundsKey : List.of("diagnosticWarmups", "rounds")) {
+            for (JsonNode round : result.path(roundsKey)) {
+                for (JsonNode request : round.path("requests")) {
+                    if (!request.path("success").asBoolean()) assertThat(request.path("failure").asText()).isEqualTo("OutOfMemoryError");
+                }
+                for (JsonNode file : round.path("files")) expectedStages += file.path("inputStreamOpens").asInt();
+            }
+        }
+        assertThat(analysis.path("stageEvents").asInt()).as("완료된 구간 이벤트가 기록에서 빠지지 않아야 함").isEqualTo(expectedStages);
+    }
+
     private static JsonNode run(String mode, Path fixtures, String name, int heapMiB) throws Exception {
+        return run(mode, fixtures, name, heapMiB, false);
+    }
+
+    private static JsonNode run(String mode, Path fixtures, String name, int heapMiB, boolean profile) throws Exception {
         Files.createDirectories(REPORT);
         Path work = Files.createDirectory(directory.resolve("process-"+name));
         Path result = work.resolve("result.json");
@@ -83,9 +113,14 @@ class PhotoUploadResourceBenchmarkTest {
         String executable = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
         Path java = Path.of(System.getProperty("java.home"), "bin", executable);
         // GC 로그 파일명은 자식 작업 폴더 기준으로 지정해 Windows 드라이브의 ':' 해석을 피한다.
-        List<String> command = List.of("-Xms"+heapMiB+"m", "-Xmx"+heapMiB+"m", "-XX:+UseG1GC", "-Dfile.encoding=UTF-8",
+        List<String> command = new ArrayList<>(List.of("-Xms"+heapMiB+"m", "-Xmx"+heapMiB+"m", "-XX:+UseG1GC", "-Dfile.encoding=UTF-8",
                 "-Djava.awt.headless=true", "-Djava.io.tmpdir="+work, "-Djava.util.concurrent.ForkJoinPool.common.parallelism=8",
-                "-Xlog:gc:file=gc.log:time,uptime,level,tags", "-cp", classpath, PhotoUploadResourceProcess.class.getName(), mode, fixtures.toString(), result.toString());
+                "-Xlog:gc:file=gc.log:time,uptime,level,tags"));
+        if (profile) {
+            command.add("-XX:FlightRecorderOptions=stackdepth=64");
+            command.add("-D" + PhotoUploadAllocationProfiler.PROPERTY + "=" + work.resolve("allocations.jfr"));
+        }
+        command.addAll(List.of("-cp", classpath, PhotoUploadResourceProcess.class.getName(), mode, fixtures.toString(), result.toString()));
         Files.writeString(args,command.stream().map(PhotoUploadResourceBenchmarkTest::quote).collect(Collectors.joining(System.lineSeparator())),StandardCharsets.UTF_8);
         ProcessBuilder builder = new ProcessBuilder(java.toString(),"@"+args).directory(work.toFile()).redirectErrorStream(true).redirectOutput(log.toFile());
         builder.environment().clear();
@@ -96,6 +131,11 @@ class PhotoUploadResourceBenchmarkTest {
         try { finished=child.waitFor(180,TimeUnit.SECONDS); }
         finally { if(child.isAlive()){child.destroyForcibly(); assertThat(child.waitFor(5,TimeUnit.SECONDS)).isTrue();} }
         if(Files.exists(work.resolve("gc.log")))Files.copy(work.resolve("gc.log"),gcLog,StandardCopyOption.REPLACE_EXISTING);
+        if (profile && Files.isRegularFile(work.resolve("allocations.jfr"))) {
+            Path recording = REPORT.resolve(name + ".jfr");
+            Files.copy(work.resolve("allocations.jfr"), recording, StandardCopyOption.REPLACE_EXISTING);
+            PhotoUploadAllocationProfiler.writeAnalysis(recording, REPORT.resolve(name + "-allocations.json"));
+        }
         String output=Files.readString(log,StandardCharsets.UTF_8);
         if(!finished || child.exitValue()!=0 || (!mode.endsWith("fixture") && !mode.equals("fixtures") && !Files.isRegularFile(result))) {
             JSON.writerWithDefaultPrettyPrinter().writeValue(REPORT.resolve(name+"-process-failure.json").toFile(),Map.of(
@@ -109,9 +149,14 @@ class PhotoUploadResourceBenchmarkTest {
         }
         var resultJson=(com.fasterxml.jackson.databind.node.ObjectNode)JSON.readTree(result.toFile());
         resultJson.put("runId",RUN_ID);
+        resultJson.put("reportName", name);
         var hashes=resultJson.putObject("productionSourceSha256");
         for(String source:List.of("PhotoService.java","GcsService.java"))hashes.put(source,HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(
                 Files.readAllBytes(Path.of("src/main/java/com/yeogidot/yeogidot/service",source)))));
+        var toolHashes = resultJson.putObject("measurementSourceSha256");
+        for (String source : List.of("PhotoUploadResourceProcess.java", "PhotoUploadResourceBenchmarkTest.java", "PhotoUploadAllocationProfiler.java"))
+            toolHashes.put(source, HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(
+                    Files.readAllBytes(Path.of("src/test/java/com/yeogidot/yeogidot/service", source)))));
         JSON.writerWithDefaultPrettyPrinter().writeValue(REPORT.resolve(name+".json").toFile(),resultJson);
         writeSummary();
         System.out.println("UPLOAD_RESOURCE_RESULT "+name+" "+resultJson.path("summary"));
@@ -123,6 +168,7 @@ class PhotoUploadResourceBenchmarkTest {
         try(var files=Files.list(REPORT)) {
             for(Path file:files.filter(p->p.toString().endsWith(".json")).sorted().toList()) {
                 JsonNode r=JSON.readTree(file.toFile()),s=r.path("summary");if(s.isMissingNode())continue;
+                if (r.has("allocationDiagnostic")) continue; // 할당 진단의 시간을 일반 기준값 CSV와 혼합하지 않는다.
                 rows.add(String.format(Locale.ROOT,"%s,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d,%d,%s",r.path("scenario").asText(),s.path("requestSamples").asInt(),s.path("successfulRequests").asInt(),s.path("failedRequests").asInt(),
                         s.path("serviceMedianMs").asDouble(),s.path("serviceMinMs").asDouble(),s.path("serviceMaxMs").asDouble(),s.path("observedHeapPeakBytes").asLong()/1048576.0,
                         s.path("gcCollectionTimeMs").asLong(),s.path("gcCollections").asLong(),s.path("validationPeak").asInt(),s.path("uploadPeak").asInt(),s.path("postValidationPendingPeak").asInt(),
