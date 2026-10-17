@@ -21,7 +21,7 @@ class PhotoUploadConcurrencyBaselineTest {
     @TempDir Path directory;
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {"validation-outside-limit", "upload-limit", "upload-failure-release", "postprocess-failure-release"})
+    @ValueSource(strings = {"validation-limit", "shared-validation-upload-limit", "validation-failure-release", "upload-limit", "upload-failure-release", "postprocess-failure-release"})
     void 실제_업로드서비스의_제한범위와_실패후_권한반환을_별도_JVM에서_확인한다(String scenario) throws Exception {
         // 기존 Gradle의 재시작 테스트용 런타임 클래스패스를 재사용한다. Spring 설정은 로드하지 않는다.
         String classpath = System.getProperty("r2.recovery.test.classpath");

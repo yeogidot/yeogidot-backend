@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PhotoService {
 
-    // 동시 업로드 수 제한 (최대 3장): 폰 사진 다수 동시 처리 시 OOM 방지
+    // 내용 검증과 압축·업로드가 같은 3개 권한을 공유한다. 해상도·대기열 크기 제한은 아니다.
     private static final Semaphore uploadSemaphore = new Semaphore(3);
 
     private final PhotoRepository photoRepository;
@@ -118,18 +118,7 @@ public class PhotoService {
             // JNI 로딩 실패 및 리눅스 배포 환경 네이티브 바이너리 불일치 위험이 있어 미적용
             // WebP는 MIME 타입 + 확장자 2단계 검증으로 충분하다고 판단하여 내용 검사 건너뜀
             if (!ext.equals(".webp")) {
-                try (InputStream is = file.getInputStream()) {
-                    BufferedImage image = ImageIO.read(is);
-                    if (image == null) {
-                        throw new IllegalArgumentException(
-                                "유효하지 않은 이미지 파일입니다: " + originalFilename + ". 실제 이미지 데이터가 아닙니다."
-                        );
-                    }
-                } catch (IllegalArgumentException e) {
-                    throw e; // 위에서 던진 예외는 그대로 전파
-                } catch (IOException e) {
-                    throw new IllegalArgumentException("이미지 파일을 읽는 중 오류가 발생했습니다: " + originalFilename, e);
-                }
+                validateImageContents(file);
             }
         }
 
@@ -262,6 +251,27 @@ public class PhotoService {
         log.info("===== 사진 업로드 완료: 총 소요시간 {}ms =====", System.currentTimeMillis() - totalStart);
 
         return savedPhotos;
+    }
+
+    private void validateImageContents(MultipartFile file) {
+        boolean acquired = false;
+        try {
+            uploadSemaphore.acquire();
+            acquired = true;
+            try (InputStream input = file.getInputStream()) {
+                BufferedImage image = ImageIO.read(input);
+                if (image == null) throw new IllegalArgumentException(
+                        "유효하지 않은 이미지 파일입니다: " + file.getOriginalFilename() + ". 실제 이미지 데이터가 아닙니다.");
+                image.flush();
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("이미지 검증 대기 중 인터럽트", exception);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("이미지 파일을 읽는 중 오류가 발생했습니다: " + file.getOriginalFilename(), exception);
+        } finally {
+            if (acquired) uploadSemaphore.release();
+        }
     }
 
     private void registerUploadRollbackCompensation(

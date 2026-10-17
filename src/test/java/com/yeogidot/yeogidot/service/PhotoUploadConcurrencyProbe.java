@@ -67,7 +67,9 @@ final class PhotoUploadConcurrencyProbe {
         assertThat(ForkJoinPool.getCommonPoolParallelism()).isEqualTo(8);
         PhotoUploadConcurrencyProbe probe = new PhotoUploadConcurrencyProbe();
         Map<String, Object> evidence = switch (args[0]) {
-            case "validation-outside-limit" -> probe.validationOutsideLimit();
+            case "validation-limit" -> probe.validationLimit();
+            case "shared-validation-upload-limit" -> probe.sharedLimit();
+            case "validation-failure-release" -> probe.validationFailureRelease();
             case "upload-limit" -> probe.uploadLimit();
             case "upload-failure-release" -> probe.failureRelease(false);
             case "postprocess-failure-release" -> probe.failureRelease(true);
@@ -87,8 +89,8 @@ final class PhotoUploadConcurrencyProbe {
         System.out.println("UPLOAD_BASELINE_RESULT " + new ObjectMapper().writeValueAsString(evidence));
     }
 
-    private Map<String, Object> validationOutsideLimit() throws Exception {
-        Gate validation = new Gate(5);
+    private Map<String, Object> validationLimit() throws Exception {
+        Gate validation = new Gate(3);
         AtomicInteger uploads = new AtomicInteger();
         when(storage.uploadFile(any(MultipartFile.class))).thenAnswer(invocation -> {
             uploads.incrementAndGet();
@@ -124,8 +126,9 @@ final class PhotoUploadConcurrencyProbe {
                 requests.add(callers.submit(() -> upload(observed, false)));
             }
             validation.awaitEntered();
-            assertThat(validation.active.get()).isEqualTo(5);
-            assertThat(validation.peak.get()).isEqualTo(5);
+            int waiting = awaitSemaphoreWaiters(2);
+            assertThat(validation.active.get()).isEqualTo(3);
+            assertThat(validation.peak.get()).isEqualTo(3);
             assertThat(uploads.get()).as("검증이 해제되기 전에는 업로드를 시작하지 않는다").isZero();
             validation.open();
             for (Future<List<Photo>> request : requests) assertThat(get(request)).hasSize(1);
@@ -134,10 +137,60 @@ final class PhotoUploadConcurrencyProbe {
             verify(photos, times(5)).save(any(Photo.class));
             verifyNoInteractions(geocoding);
             return evidence("requestCount", 5, "validationStreamPeak", validation.peak.get(), "uploadsBeforeValidationRelease", 0,
-                    "completedRequests", 5, "observation", "real ImageIO validation stream reads held by a test latch");
+                    "observedSemaphoreWaiters", waiting, "completedRequests", 5, "observation", "real ImageIO validation stream reads held by a test latch");
         } finally {
             validation.open();
             shutdown(callers);
+        }
+    }
+
+    private Map<String, Object> sharedLimit() throws Exception {
+        Gate uploads = new Gate(2), validation = new Gate(1);
+        when(storage.uploadFile(any(MultipartFile.class))).thenAnswer(invocation -> {
+            MultipartFile file = invocation.getArgument(0);
+            if (file.getOriginalFilename().startsWith("held-")) {
+                uploads.enter();
+                try { return url(file); } finally { uploads.leave(); }
+            }
+            return url(file);
+        });
+        ExecutorService callers = Executors.newFixedThreadPool(5);
+        List<Future<List<Photo>>> requests = new ArrayList<>();
+        try {
+            for (int i = 0; i < 2; i++) {
+                MultipartFile file = file("held-" + i + ".png");
+                requests.add(callers.submit(() -> upload(file, false)));
+            }
+            uploads.awaitEntered();
+            for (int i = 0; i < 3; i++) {
+                MultipartFile file = new MockMultipartFile("files", "mixed-" + i + ".png", "image/png", png) {
+                    @Override public InputStream getInputStream() {
+                        return new FilterInputStream(new ByteArrayInputStream(png)) {
+                            private boolean entered, closed;
+                            private void enter() throws IOException { if (!entered) { entered = true; validation.enter(); } }
+                            @Override public int read() throws IOException { enter(); return in.read(); }
+                            @Override public int read(byte[] bytes, int off, int len) throws IOException { enter(); return in.read(bytes, off, len); }
+                            @Override public void close() throws IOException {
+                                if (!closed) { closed = true; if (entered) validation.leave(); }
+                                super.close();
+                            }
+                        };
+                    }
+                };
+                requests.add(callers.submit(() -> upload(file, false)));
+            }
+            validation.awaitEntered();
+            int waiting = awaitSemaphoreWaiters(2);
+            assertThat(uploads.active.get()).isEqualTo(2);
+            assertThat(validation.active.get()).isEqualTo(1);
+            assertThat(validation.peak.get()).isEqualTo(1);
+            validation.open(); uploads.open();
+            for (Future<List<Photo>> request : requests) assertThat(get(request)).hasSize(1);
+            verify(photos, times(5)).save(any(Photo.class));
+            return evidence("heldUploads", 2, "validationEntriesWhileUploadsHeld", 1,
+                    "observedSemaphoreWaiters", waiting, "combinedActiveWhileHeld", 3, "completedRequests", 5);
+        } finally {
+            validation.open(); uploads.open(); shutdown(callers);
         }
     }
 
@@ -174,6 +227,40 @@ final class PhotoUploadConcurrencyProbe {
             upload.open();
             shutdown(callers);
         }
+    }
+
+    private Map<String, Object> validationFailureRelease() throws Exception {
+        Gate followUp = new Gate(3);
+        when(storage.uploadFile(any(MultipartFile.class))).thenAnswer(invocation -> {
+            followUp.enter();
+            try { return url(invocation.getArgument(0)); }
+            finally { followUp.leave(); }
+        });
+        ExecutorService callers = Executors.newFixedThreadPool(3);
+        List<Future<List<Photo>>> failed = new ArrayList<>(), next = new ArrayList<>();
+        try {
+            for (int i = 0; i < 3; i++) {
+                MultipartFile broken = new MockMultipartFile("files", "broken.png", "image/png", png) {
+                    @Override public InputStream getInputStream() throws IOException { throw new IOException("forced-validation-failure"); }
+                };
+                failed.add(callers.submit(() -> upload(broken, false)));
+            }
+            for (Future<List<Photo>> request : failed) {
+                try { get(request); throw new AssertionError("Expected validation failure"); }
+                catch (ExecutionException failure) { assertThat(failure.getCause()).hasStackTraceContaining("forced-validation-failure"); }
+            }
+            verify(storage, never()).uploadFile(any());
+            verify(photos, never()).save(any());
+            for (int i = 0; i < 3; i++) {
+                MultipartFile good = file("follow-up-" + i + ".png");
+                next.add(callers.submit(() -> upload(good, false)));
+            }
+            followUp.awaitEntered();
+            assertThat(followUp.active.get()).isEqualTo(3);
+            followUp.open();
+            for (Future<List<Photo>> request : next) assertThat(get(request)).hasSize(1);
+            return evidence("validationFailures", 3, "followUpUploadPeak", followUp.peak.get(), "followUpCompletedRequests", 3);
+        } finally { followUp.open(); shutdown(callers); }
     }
 
     private Map<String, Object> failureRelease(boolean postprocess) throws Exception {
@@ -271,7 +358,7 @@ final class PhotoUploadConcurrencyProbe {
                 boolean serviceFrame = false;
                 boolean semaphoreFrame = false;
                 for (StackTraceElement frame : info.getStackTrace()) {
-                    serviceFrame |= frame.getClassName().equals(PhotoService.class.getName()) && frame.getMethodName().startsWith("lambda$uploadPhotos$");
+                    serviceFrame |= frame.getClassName().equals(PhotoService.class.getName());
                     semaphoreFrame |= frame.getClassName().equals("java.util.concurrent.Semaphore") && frame.getMethodName().equals("acquire");
                 }
                 if (serviceFrame && semaphoreFrame) waiting++;
