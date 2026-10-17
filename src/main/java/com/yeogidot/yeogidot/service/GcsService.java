@@ -3,6 +3,8 @@ package com.yeogidot.yeogidot.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
+import net.coobird.thumbnailator.builders.ThumbnailParameterBuilder;
+import net.coobird.thumbnailator.tasks.io.InputStreamImageSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,9 +14,18 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.UUID;
 
 /**
@@ -77,14 +88,69 @@ public class GcsService {
             return file.getBytes();
         }
 
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        Thumbnails.of(file.getInputStream())
-                .scale(1.0)
-                .outputQuality(0.9)
-                .outputFormat("JPEG")
-                .toOutputStream(outputStream);
+        // 원본 크기의 일반 RGB 이미지에는 크기 변환용 복사와 JPEG RGB 복사가 필요 없다.
+        // EXIF 읽기·회전은 기존 라이브러리로 처리하고, JPEG 품질은 동일하게 유지한다.
+        try (InputStream input = file.getInputStream()) {
+            BufferedImage image = readOrientedImage(input);
+            BufferedImage jpeg = image;
+            try {
+                if (!isJpegRgb(image)) {
+                    // 투명·회색조·팔레트 이미지에는 기존과 같은 RGB/검은 배경 변환을 적용한다.
+                    jpeg = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+                    Graphics2D graphics = jpeg.createGraphics();
+                    try { graphics.drawImage(image, 0, 0, null); }
+                    finally { graphics.dispose(); }
+                }
+                var writers = ImageIO.getImageWritersByFormatName("JPEG");
+                if (!writers.hasNext()) throw new IOException("JPEG 인코더를 사용할 수 없습니다.");
+                ImageWriter writer = writers.next();
+                try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                    try (ImageOutputStream encoded = ImageIO.createImageOutputStream(output)) {
+                        if (encoded == null) throw new IOException("JPEG 출력 스트림을 만들 수 없습니다.");
+                        writer.setOutput(encoded);
+                        ImageWriteParam parameters = writer.getDefaultWriteParam();
+                        parameters.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                        parameters.setCompressionQuality(0.9f);
+                        writer.write(null, new IIOImage(jpeg, null, null), parameters);
+                        encoded.flush();
+                    }
+                    return output.toByteArray();
+                } finally { writer.dispose(); }
+            } finally {
+                if (jpeg != image) jpeg.flush();
+                image.flush();
+            }
+        }
+    }
 
-        return outputStream.toByteArray();
+    private BufferedImage readOrientedImage(InputStream input) throws IOException {
+        // 같은 ImageSource와 EXIF 필터를 사용하되, 일반 RGB에서 scale(1.0)의 복사는 생략한다.
+        var parameters = new ThumbnailParameterBuilder().scale(1.0).useExifOrientation(true)
+                .filters(new ArrayList<>()).build();
+        var source = new InputStreamImageSource(input);
+        source.setThumbnailParameter(parameters);
+        BufferedImage image = source.read();
+        try {
+            if (!isJpegRgb(image)) {
+                // 투명·팔레트·회색조 등은 기존 이미지 타입 변환 경로를 유지한다.
+                BufferedImage converted = Thumbnails.of(image).scale(1.0).asBufferedImage();
+                if (converted != image) image.flush();
+                image = converted;
+            }
+            for (var filter : parameters.getImageFilters()) {
+                BufferedImage oriented = filter.apply(image);
+                if (oriented != image) image.flush();
+                image = oriented;
+            }
+            return image;
+        } catch (RuntimeException | Error failure) {
+            image.flush();
+            throw failure;
+        }
+    }
+
+    private boolean isJpegRgb(BufferedImage image) {
+        return image.getType() == BufferedImage.TYPE_3BYTE_BGR || image.getType() == BufferedImage.TYPE_INT_RGB;
     }
 
     /**

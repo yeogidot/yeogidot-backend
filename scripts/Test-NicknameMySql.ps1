@@ -50,7 +50,7 @@ try {
     $nicknameTestExit = $LASTEXITCODE
     Write-Host "Test DB retained: $nicknameSchema"
     if ($nicknameTestExit -ne 0) { throw 'Tests failed. Do not report them as passed.' }
-    $nicknameXml = Join-Path $nicknameRepo 'build/test-results/test/TEST-com.yeogidot.yeogidot.service.AuthNicknameMySqlIntegrationTest.xml'
+    $nicknameXml = Join-Path $nicknameRepo 'build/test-results/test/TEST-com.yeogidot.yeogidot.service.auth.AuthNicknameMySqlIntegrationTest.xml'
     if (!(Test-Path -LiteralPath $nicknameXml) -or (Get-Item -LiteralPath $nicknameXml).LastWriteTime -lt $nicknameStarted) {
         throw 'Fresh MySQL test report not found'
     }
