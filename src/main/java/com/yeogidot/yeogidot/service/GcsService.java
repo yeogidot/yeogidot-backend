@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.service;
 
+import com.yeogidot.yeogidot.observability.UploadTiming;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
@@ -60,16 +61,29 @@ public class GcsService {
 
         log.info("📤 R2 업로드 시작: {} → {}", originalFilename, fileName);
 
-        byte[] uploadBytes = compressIfImage(file);
+        byte[] uploadBytes;
+        try (var timing = UploadTiming.start("file_prepare")) {
+            uploadBytes = compressIfImage(file);
+            timing.success();
+        }
         log.info("📦 파일 크기: {}KB → {}KB", file.getSize() / 1024, uploadBytes.length / 1024);
 
-        PutObjectRequest putRequest = PutObjectRequest.builder()
+        PutObjectRequest putRequest;
+        RequestBody requestBody;
+        try (var timing = UploadTiming.start("r2_request_prepare")) {
+            putRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(fileName)
                 .contentType(file.getContentType())
                 .build();
+            requestBody = RequestBody.fromBytes(uploadBytes);
+            timing.success();
+        }
 
-        s3Client.putObject(putRequest, RequestBody.fromBytes(uploadBytes));
+        try (var timing = UploadTiming.start("r2_put_object")) {
+            s3Client.putObject(putRequest, requestBody);
+            timing.success();
+        }
 
         String fileUrl = publicUrl + "/" + fileName;
         log.info("✅ R2 업로드 완료: {}", fileUrl);

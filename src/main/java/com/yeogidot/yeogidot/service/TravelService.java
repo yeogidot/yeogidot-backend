@@ -6,6 +6,7 @@ import com.yeogidot.yeogidot.exception.BadRequestException;
 import com.yeogidot.yeogidot.exception.ResourceNotFoundException;
 import com.yeogidot.yeogidot.repository.*;
 import com.yeogidot.yeogidot.security.OwnershipValidator;
+import com.yeogidot.yeogidot.observability.UploadTiming;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -71,7 +72,15 @@ public class TravelService {
     // === 여행 생성 ===
     @Transactional
     public Long createTravel(TravelDto.CreateRequest request, User user) {
+        UploadTiming.watchTransaction(System.nanoTime());
+        try (var timing = UploadTiming.start("travel_create_service")) {
+            Long id = doCreateTravel(request, user);
+            timing.success();
+            return id;
+        }
+    }
 
+    private Long doCreateTravel(TravelDto.CreateRequest request, User user) {
         // 1단계: 사진 유효성 검증
         if (request.getPhotoIds() == null || request.getPhotoIds().isEmpty()) {
             throw new IllegalArgumentException("최소 1장 이상의 사진을 선택해주세요.");

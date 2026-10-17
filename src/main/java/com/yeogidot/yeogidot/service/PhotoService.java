@@ -13,6 +13,7 @@ import com.yeogidot.yeogidot.repository.CommentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
 import com.yeogidot.yeogidot.security.OwnershipValidator;
+import com.yeogidot.yeogidot.observability.UploadTiming;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -85,43 +86,72 @@ public class PhotoService {
      */
     @Transactional
     public List<Photo> uploadPhotos(List<MultipartFile> files, String metadataJson, User user) throws IOException {
-        // 파일 타입 검증 (MIME 타입 + 확장자 + 실제 이미지 내용 검사)
-        for (MultipartFile file : files) {
-            // 1. 확장자 검사 (1차 관문 - MIME 타입보다 먼저 검사)
-            // 이유: 브라우저가 WebP를 application/octet-stream으로 보내는 경우가 있어
-            //       MIME 타입만 믿으면 정상 파일도 차단됨. 확장자를 먼저 보고 허용 여부 판단.
-            String originalFilename = file.getOriginalFilename();
-            String ext = (originalFilename != null && originalFilename.contains("."))
-                    ? originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase()
-                    : "";
+        UploadTiming.watchTransaction(System.nanoTime());
+        try (var timing = UploadTiming.start("upload_service")) {
+            List<Photo> result = doUploadPhotos(files, metadataJson, user);
+            timing.success();
+            return result;
+        }
+    }
 
-            if (!ALLOWED_EXTENSIONS.contains(ext)) {
-                throw new IllegalArgumentException(
-                        "허용되지 않는 파일 확장자입니다: " + ext + ". jpg, jpeg, png, webp만 허용됩니다."
-                );
-            }
-
-            // 2. MIME 타입 검사 (2차 관문)
-            // application/octet-stream은 브라우저가 타입을 특정 못할 때 보내는 기본값 → 확장자로 이미 통과했으면 허용
-            String contentType = file.getContentType();
-            if (contentType != null
-                    && !contentType.equals("application/octet-stream")
-                    && !ALLOWED_MIME_TYPES.contains(contentType)) {
-                throw new IllegalArgumentException(
-                        "허용되지 않는 파일 형식입니다: " + contentType + ". JPEG, PNG, WebP 파일만 업로드 가능합니다."
-                );
-            }
-
-            // 3. 실제 이미지 파일 내용 검사 (확장자·MIME 타입 모두 속여도 차단)
-            // WebP는 Java 기본 ImageIO 미지원 → null 반환으로 false positive 발생
-            // webp-imageio 등 외부 라이브러리는 Java 21 / Spring Boot 3.x 환경에서
-            // JNI 로딩 실패 및 리눅스 배포 환경 네이티브 바이너리 불일치 위험이 있어 미적용
-            // WebP는 MIME 타입 + 확장자 2단계 검증으로 충분하다고 판단하여 내용 검사 건너뜀
-            if (!ext.equals(".webp")) {
-                validateImageContents(file);
-            }
+    private List<Photo> doUploadPhotos(List<MultipartFile> files, String metadataJson, User user) throws IOException {
+        try (var timing = UploadTiming.start("validation_total")) {
+            validateUploadFiles(files);
+            timing.success();
         }
 
+        List<PhotoMetaDto> metaList;
+        try (var timing = UploadTiming.start("metadata_parse")) {
+            metaList = parseUploadMetadata(files, metadataJson);
+            timing.success();
+        }
+
+        return processUploadFiles(files, metaList, user);
+    }
+
+    private void validateUploadFiles(List<MultipartFile> files) {
+        // 파일 타입 검증 (MIME 타입 + 확장자 + 실제 이미지 내용 검사)
+        for (int i = 0; i < files.size(); i++) {
+            MultipartFile file = files.get(i);
+            try (var ignored = UploadTiming.photo(i + 1)) {
+                // 1. 확장자 검사 (1차 관문 - MIME 타입보다 먼저 검사)
+                // 이유: 브라우저가 WebP를 application/octet-stream으로 보내는 경우가 있어
+                //       MIME 타입만 믿으면 정상 파일도 차단됨. 확장자를 먼저 보고 허용 여부 판단.
+                String originalFilename = file.getOriginalFilename();
+                String ext = (originalFilename != null && originalFilename.contains("."))
+                        ? originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase()
+                        : "";
+
+                if (!ALLOWED_EXTENSIONS.contains(ext)) {
+                    throw new IllegalArgumentException(
+                            "허용되지 않는 파일 확장자입니다: " + ext + ". jpg, jpeg, png, webp만 허용됩니다."
+                    );
+                }
+
+                // 2. MIME 타입 검사 (2차 관문)
+                // application/octet-stream은 브라우저가 타입을 특정 못할 때 보내는 기본값 → 확장자로 이미 통과했으면 허용
+                String contentType = file.getContentType();
+                if (contentType != null
+                        && !contentType.equals("application/octet-stream")
+                        && !ALLOWED_MIME_TYPES.contains(contentType)) {
+                    throw new IllegalArgumentException(
+                            "허용되지 않는 파일 형식입니다: " + contentType + ". JPEG, PNG, WebP 파일만 업로드 가능합니다."
+                    );
+                }
+
+                // 3. 실제 이미지 파일 내용 검사 (확장자·MIME 타입 모두 속여도 차단)
+                // WebP는 Java 기본 ImageIO 미지원 → null 반환으로 false positive 발생
+                // webp-imageio 등 외부 라이브러리는 Java 21 / Spring Boot 3.x 환경에서
+                // JNI 로딩 실패 및 리눅스 배포 환경 네이티브 바이너리 불일치 위험이 있어 미적용
+                // WebP는 MIME 타입 + 확장자 2단계 검증으로 충분하다고 판단하여 내용 검사 건너뜀
+                if (!ext.equals(".webp")) {
+                    validateImageContents(file);
+                }
+            }
+        }
+    }
+
+    private List<PhotoMetaDto> parseUploadMetadata(List<MultipartFile> files, String metadataJson) {
         // JSON 파싱 시도 - 형식 오류는 명확한 예외로 변환
         List<PhotoMetaDto> metaList;
         try {
@@ -139,7 +169,10 @@ public class PhotoService {
         if (files.size() != metaList.size()) {
             throw new IllegalArgumentException("파일 개수와 메타데이터 개수가 일치하지 않습니다.");
         }
+        return metaList;
+    }
 
+    private List<Photo> processUploadFiles(List<MultipartFile> files, List<PhotoMetaDto> metaList, User user) throws IOException {
         long totalStart = System.currentTimeMillis();
         log.info("===== 사진 업로드 시작: 총 {}장 =====", files.size());
 
@@ -155,56 +188,65 @@ public class PhotoService {
             final int index = i;
             final MultipartFile file = files.get(i);
             final PhotoMetaDto meta = metaList.get(i);
+            final UploadTiming.Context requestContext = UploadTiming.current();
+            final long submitted = System.nanoTime();
 
             CompletableFuture<Photo> future = CompletableFuture.supplyAsync(() -> {
-                try {
-                    // Semaphore 획득: 최대 3장만 동시 실행, 나머지는 대기
-                    uploadSemaphore.acquire();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("업로드 대기 중 인터럽트", e);
-                }
-                try {
-                    log.info("----- 사진 {}/{} 처리 시작 (병렬) -----", index + 1, files.size());
-
-                    // 1. GCS 업로드 (여러 사진 동시 실행)
-                    long gcsStart = System.currentTimeMillis();
-                    String gcsUrl = gcsService.uploadFile(file);
-                    uploadedUrls.add(gcsUrl);
-                    log.info("[{}번] R2 업로드 소요시간: {}ms", index + 1, System.currentTimeMillis() - gcsStart);
-
-                    // 2. 좌표 처리
-                    BigDecimal lat = meta.getLatitude() != null
-                            ? BigDecimal.valueOf(meta.getLatitude()) : null;
-                    BigDecimal lng = meta.getLongitude() != null
-                            ? BigDecimal.valueOf(meta.getLongitude()) : null;
-
-                    // 3. 카카오 역지오코딩 (캐싱 적용되어 있어 같은 지역이면 즉시 반환)
-                    String region = null;
-                    if (lat != null && lng != null) {
-                        long kakaoStart = System.currentTimeMillis();
-                        region = geoCodingService.getDistrictFromCoordinates(lat, lng);
-                        log.info("[{}번] 카카오 역지오코딩 소요시간: {}ms", index + 1, System.currentTimeMillis() - kakaoStart);
+                try (var ignored = UploadTiming.bind(requestContext == null ? null : requestContext.photo(index + 1))) {
+                    UploadTiming.elapsed("executor_wait", submitted, "STARTED");
+                    try (var timing = UploadTiming.start("upload_permit_wait")) {
+                        // Semaphore 획득: 최대 3장만 동시 실행, 나머지는 대기
+                        uploadSemaphore.acquire();
+                        timing.success();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("업로드 대기 중 인터럽트", e);
                     }
+                    try {
+                        log.info("----- 사진 {}/{} 처리 시작 (병렬) -----", index + 1, files.size());
 
-                    // 4. 촬영 시간 파싱
-                    LocalDateTime takenAt = parseTakenAt(meta.getTakenAt());
+                        // 1. GCS 업로드 (여러 사진 동시 실행)
+                        long gcsStart = System.currentTimeMillis();
+                        String gcsUrl = gcsService.uploadFile(file);
+                        uploadedUrls.add(gcsUrl);
+                        log.info("[{}번] R2 업로드 소요시간: {}ms", index + 1, System.currentTimeMillis() - gcsStart);
 
-                    // 5. Photo 엔티티 생성 (DB 저장은 아직 안 함)
-                    return Photo.builder()
-                            .user(user)
-                            .filePath(gcsUrl)
-                            .originalName(meta.getOriginalName())
-                            .takenAt(takenAt)
-                            .latitude(lat)
-                            .longitude(lng)
-                            .region(region)
-                            .build();
+                        // 2. 좌표 처리
+                        BigDecimal lat = meta.getLatitude() != null
+                                ? BigDecimal.valueOf(meta.getLatitude()) : null;
+                        BigDecimal lng = meta.getLongitude() != null
+                                ? BigDecimal.valueOf(meta.getLongitude()) : null;
 
-                } catch (IOException e) {
-                    throw new RuntimeException(index + 1 + "번 사진 처리 실패", e);
-                } finally {
-                    uploadSemaphore.release(); // 반드시 반환 (예외 발생해도)
+                        // 3. 카카오 역지오코딩 (캐싱 적용되어 있어 같은 지역이면 즉시 반환)
+                        String region = null;
+                        if (lat != null && lng != null) {
+                            long kakaoStart = System.currentTimeMillis();
+                            try (var timing = UploadTiming.start("geocoding")) {
+                                region = geoCodingService.getDistrictFromCoordinates(lat, lng);
+                                timing.success();
+                            }
+                            log.info("[{}번] 카카오 역지오코딩 소요시간: {}ms", index + 1, System.currentTimeMillis() - kakaoStart);
+                        }
+
+                        // 4. 촬영 시간 파싱
+                        LocalDateTime takenAt = parseTakenAt(meta.getTakenAt());
+
+                        // 5. Photo 엔티티 생성 (DB 저장은 아직 안 함)
+                        return Photo.builder()
+                                .user(user)
+                                .filePath(gcsUrl)
+                                .originalName(meta.getOriginalName())
+                                .takenAt(takenAt)
+                                .latitude(lat)
+                                .longitude(lng)
+                                .region(region)
+                                .build();
+
+                    } catch (IOException e) {
+                        throw new RuntimeException(index + 1 + "번 사진 처리 실패", e);
+                    } finally {
+                        uploadSemaphore.release(); // 반드시 반환 (예외 발생해도)
+                    }
                 }
             });
 
@@ -233,7 +275,7 @@ public class PhotoService {
 
         // 모든 비동기 작업이 성공한 경우에만 DB에 저장한다.
         List<Photo> savedPhotos = new ArrayList<>();
-        try {
+        try (var timing = UploadTiming.start("db_save_flush")) {
             for (Photo photo : processedPhotos) {
                 long dbStart = System.currentTimeMillis();
                 Photo saved = photoRepository.save(photo);
@@ -243,6 +285,7 @@ public class PhotoService {
 
             // 지연된 SQL 오류를 메서드 안에서 최대한 빨리 확인한다.
             photoRepository.flush();
+            timing.success();
         } catch (RuntimeException exception) {
             compensateUploadedFiles(uploadedUrls, compensationInProgress);
             throw exception;
@@ -256,13 +299,17 @@ public class PhotoService {
     private void validateImageContents(MultipartFile file) {
         boolean acquired = false;
         try {
-            uploadSemaphore.acquire();
-            acquired = true;
-            try (InputStream input = file.getInputStream()) {
+            try (var timing = UploadTiming.start("validation_permit_wait")) {
+                uploadSemaphore.acquire();
+                acquired = true;
+                timing.success();
+            }
+            try (var timing = UploadTiming.start("image_validation"); InputStream input = file.getInputStream()) {
                 BufferedImage image = ImageIO.read(input);
                 if (image == null) throw new IllegalArgumentException(
                         "유효하지 않은 이미지 파일입니다: " + file.getOriginalFilename() + ". 실제 이미지 데이터가 아닙니다.");
                 image.flush();
+                timing.success();
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

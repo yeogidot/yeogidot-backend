@@ -97,7 +97,7 @@ public class SecurityConfig {
         ));
 
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setExposedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("*", "X-Request-ID"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
