@@ -64,12 +64,12 @@ try {
     $env:RUN_R2_MYSQL_TEST = 'true'
     $manualRecoveryStarted = Get-Date
     & .\gradlew.bat bootJar test --no-daemon --console=plain --rerun-tasks `
-        --tests 'com.yeogidot.yeogidot.service.R2DeletionManualRecoveryLiveIntegrationTest'
+        --tests 'com.yeogidot.yeogidot.service.r2.R2DeletionManualRecoveryLiveIntegrationTest'
     $manualRecoveryExit = $LASTEXITCODE
     Write-Host "Test DB retained: $manualRecoverySchema"
     Write-Host 'Only generated fixture keys are cleaned up after assertions. Inspect only printed keys if cleanup fails.'
     if ($manualRecoveryExit -ne 0) { throw 'Manual recovery live test failed. Do not report success.' }
-    $manualRecoveryXml = Join-Path $manualRecoveryRepo 'build/test-results/test/TEST-com.yeogidot.yeogidot.service.R2DeletionManualRecoveryLiveIntegrationTest.xml'
+    $manualRecoveryXml = Join-Path $manualRecoveryRepo 'build/test-results/test/TEST-com.yeogidot.yeogidot.service.r2.R2DeletionManualRecoveryLiveIntegrationTest.xml'
     if (!(Test-Path -LiteralPath $manualRecoveryXml) -or
         (Get-Item -LiteralPath $manualRecoveryXml).LastWriteTime -lt $manualRecoveryStarted) {
         throw 'Fresh live test report not found'

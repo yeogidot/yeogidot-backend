@@ -51,7 +51,7 @@ try {
     $recoveryExit = $LASTEXITCODE
     Write-Host "Test DB retained: $recoverySchema"
     if ($recoveryExit -ne 0) { throw 'Tests failed. Do not report success.' }
-    $recoveryXml = Join-Path $recoveryRepo 'build/test-results/test/TEST-com.yeogidot.yeogidot.service.R2DeletionOperationsMySqlIntegrationTest.xml'
+    $recoveryXml = Join-Path $recoveryRepo 'build/test-results/test/TEST-com.yeogidot.yeogidot.service.r2.R2DeletionOperationsMySqlIntegrationTest.xml'
     if (!(Test-Path -LiteralPath $recoveryXml) -or (Get-Item -LiteralPath $recoveryXml).LastWriteTime -lt $recoveryStarted) {
         throw 'Fresh MySQL test report not found'
     }

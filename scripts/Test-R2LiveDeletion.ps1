@@ -52,9 +52,9 @@ try {
     $env:RUN_R2_LIVE_TEST = 'true'
     $env:RUN_R2_MYSQL_TEST = 'true'
     $started = Get-Date
-    & .\gradlew.bat test --no-daemon --console=plain --rerun-tasks --tests 'com.yeogidot.yeogidot.service.R2DeletionLiveIntegrationTest'
+    & .\gradlew.bat test --no-daemon --console=plain --rerun-tasks --tests 'com.yeogidot.yeogidot.service.r2.R2DeletionLiveIntegrationTest'
     $testExit = $LASTEXITCODE
-    $xml = Join-Path $repo 'build/test-results/test/TEST-com.yeogidot.yeogidot.service.R2DeletionLiveIntegrationTest.xml'
+    $xml = Join-Path $repo 'build/test-results/test/TEST-com.yeogidot.yeogidot.service.r2.R2DeletionLiveIntegrationTest.xml'
     if ((Test-Path -LiteralPath $xml) -and (Get-Item -LiteralPath $xml).LastWriteTime -ge $started) {
         $evidence = Join-Path $repo "docs/evidence/portfolio/r2-recovery/live-$base"
         New-Item -ItemType Directory -Path $evidence | Out-Null
