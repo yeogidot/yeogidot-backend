@@ -25,7 +25,7 @@ class R2DeletionMySqlTestConfiguration extends R2DeletionTestConfiguration {
             throw new IllegalArgumentException("A fresh, dedicated R2 test schema is required");
         }
         String suffix = environment.getRequiredProperty("r2.mysql.suffix");
-        if (!suffix.equals("photo") && !suffix.equals("batch")) {
+        if (!suffix.equals("photo") && !suffix.equals("batch") && !suffix.equals("claim")) {
             throw new IllegalArgumentException("Unknown test schema suffix");
         }
         String port = required("R2_TEST_DB_PORT");
@@ -76,7 +76,8 @@ class R2DeletionMySqlTestConfiguration extends R2DeletionTestConfiguration {
         try (var connection = source.getConnection()) {
             String catalog = connection.getCatalog();
             if (!connection.getMetaData().getURL().startsWith("jdbc:mysql://127.0.0.1:")
-                    || !(catalog.equals(base + "_photo") || catalog.equals(base + "_batch"))) {
+                    || !(catalog.equals(base + "_photo") || catalog.equals(base + "_batch")
+                    || catalog.equals(base + "_claim"))) {
                 throw new IllegalStateException("Unexpected database target");
             }
         }
