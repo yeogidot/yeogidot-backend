@@ -12,7 +12,7 @@ import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.security.OwnershipValidator;
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.mockito.Mockito.mock;
 
 /** 애플리케이션 설정/외부 클라이언트/스케줄러 없이 필요한 빈만 생성한다. */
-@Configuration(proxyBeanMethods = false)
+@TestConfiguration(proxyBeanMethods = false)
 @EnableTransactionManagement
 @EnableJpaRepositories(basePackageClasses = PhotoRepository.class)
 @Import({PhotoService.class, OwnershipValidator.class, R2DeletionTaskService.class, R2DeletionWorker.class})

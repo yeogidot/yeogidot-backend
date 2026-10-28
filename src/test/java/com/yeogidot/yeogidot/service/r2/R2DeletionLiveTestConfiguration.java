@@ -2,13 +2,13 @@ package com.yeogidot.yeogidot.service.r2;
 
 import com.yeogidot.yeogidot.service.GcsService;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.core.env.Environment;
 import software.amazon.awssdk.services.s3.S3Client;
 import javax.sql.DataSource;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Configuration
+@TestConfiguration
 class R2DeletionLiveTestConfiguration extends R2DeletionMySqlTestConfiguration {
     @Override @Bean
     DataSource dataSource(Environment environment) throws Exception {

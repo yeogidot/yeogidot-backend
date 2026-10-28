@@ -8,7 +8,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -254,7 +254,7 @@ class GeoCodingCacheBaselineTest {
                 "region_1depth_name", region, "region_2depth_name", district))));
     }
 
-    @Configuration
+    @TestConfiguration
     @EnableCaching
     static class TestConfig {
         @Bean CacheManager cacheManager() { return new ConcurrentMapCacheManager("geocoding"); }

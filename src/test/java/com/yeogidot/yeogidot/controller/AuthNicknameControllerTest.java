@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -137,7 +137,7 @@ class AuthNicknameControllerTest {
         verify(auth).signup(argThat(request -> request.getNickname() == null), anyString());
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
     @Import({AuthController.class, SecurityConfig.class, GlobalExceptionHandler.class,
             JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class})

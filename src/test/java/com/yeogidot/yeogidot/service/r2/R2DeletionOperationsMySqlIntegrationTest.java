@@ -3,7 +3,7 @@ package com.yeogidot.yeogidot.service.r2;
 import com.yeogidot.yeogidot.service.R2DeletionOperationsService;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
@@ -21,7 +21,7 @@ class R2DeletionOperationsMySqlIntegrationTest extends R2DeletionOperationsInteg
         R2DeletionMySqlTestConfiguration.verify(source);
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     @Import(R2DeletionOperationsService.class)
     static class MySqlConfig extends R2DeletionMySqlTestConfiguration {
         @Override @Bean DataSource dataSource(Environment environment) throws Exception {
