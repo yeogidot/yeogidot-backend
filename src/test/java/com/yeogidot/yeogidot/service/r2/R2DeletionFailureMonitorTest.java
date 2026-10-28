@@ -9,7 +9,7 @@ import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import java.time.Instant;
 
@@ -75,5 +75,5 @@ class R2DeletionFailureMonitorTest {
             verifyNoInteractions(context.getBean(R2DeletionOperationsService.class));
         });
     }
-    @Configuration(proxyBeanMethods = false) @EnableScheduling static class Scheduling { }
+    @TestConfiguration(proxyBeanMethods = false) @EnableScheduling static class Scheduling { }
 }

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
@@ -192,7 +192,7 @@ class R2DeletionBatchIntegrationTest {
         assertThat(files.keySet()).containsExactlyInAnyOrderElementsOf(urls.subList(completed, urls.size()));
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     @Import(R2DeletionTestConfiguration.class)
     static class TestConfig {
         @Bean(destroyMethod = "shutdown")

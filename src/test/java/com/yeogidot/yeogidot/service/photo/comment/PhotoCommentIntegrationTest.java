@@ -23,7 +23,7 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -348,7 +348,7 @@ class PhotoCommentIntegrationTest {
     private record Fixture(User owner, User writer, User other, Long photoId, Long otherPhotoId,
                            Long travelId, String shareToken) {}
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     @EnableTransactionManagement
     @EnableJpaAuditing
     @EnableJpaRepositories(basePackageClasses = CommentRepository.class)

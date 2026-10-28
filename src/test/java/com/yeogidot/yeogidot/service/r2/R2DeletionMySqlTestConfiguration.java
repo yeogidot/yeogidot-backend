@@ -1,7 +1,7 @@
 package com.yeogidot.yeogidot.service.r2;
 
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,7 +13,7 @@ import javax.sql.DataSource;
 import java.util.Map;
 
 /** Opt-in only. Refuses non-loopback, non-test schemas and pre-existing tables. */
-@Configuration(proxyBeanMethods = false)
+@TestConfiguration(proxyBeanMethods = false)
 class R2DeletionMySqlTestConfiguration extends R2DeletionTestConfiguration {
     @Bean
     DataSource dataSource(Environment environment) throws Exception {

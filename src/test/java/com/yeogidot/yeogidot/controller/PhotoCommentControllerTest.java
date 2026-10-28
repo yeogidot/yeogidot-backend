@@ -12,7 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -187,7 +187,7 @@ class PhotoCommentControllerTest {
                 new UsernamePasswordAuthenticationToken(writer.getEmail(), null, List.of()));
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
     @Import({PhotoController.class, SecurityConfig.class, GlobalExceptionHandler.class,
             JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class})

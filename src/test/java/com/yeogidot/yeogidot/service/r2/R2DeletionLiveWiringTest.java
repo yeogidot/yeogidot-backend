@@ -3,7 +3,7 @@ package com.yeogidot.yeogidot.service.r2;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
@@ -35,7 +35,7 @@ class R2DeletionLiveWiringTest {
                 request.bucket().equals(R2LiveTestStorage.BUCKET) && request.key().equals("fixture.txt")));
     }
 
-    @Configuration
+    @TestConfiguration
     static class Config extends R2DeletionLiveTestConfiguration {
         @Override @Bean(destroyMethod = "shutdown") DataSource dataSource(Environment environment) {
             return new EmbeddedDatabaseBuilder().generateUniqueName(true).setType(EmbeddedDatabaseType.H2).build();
