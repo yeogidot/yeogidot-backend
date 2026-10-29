@@ -105,12 +105,12 @@ PR에서는 운영 자격 증명 없이 테스트와 빌드를 수행합니다. 
 
 ```mermaid
 flowchart TD
-    pr["PR 검사: 테스트 · 빌드"] -->|"리뷰 후 병합"| merge["main 반영"]
-    merge --> build["배포 대상 테스트 · 빌드"]
+    pr["PR 검사"] -->|"리뷰 후 병합"| merge["main 반영"]
+    merge --> build["테스트 및 빌드"]
     build -->|"통과"| deploy["서버 배포"]
-    deploy --> health{"헬스체크 · 배포 버전 확인"}
+    deploy --> health{"배포 정상 확인"}
     health -->|"성공"| done["배포 완료"]
-    health -->|"실패 / 시간 초과"| rollback["이전 버전 복구 시도"]
+    health -->|"실패 / 시간 초과"| rollback["복구 시도"]
 
     classDef primary fill:#eff6ff,stroke:#2563eb,color:#172554;
     classDef neutral fill:#f8fafc,stroke:#64748b,color:#0f172a;
