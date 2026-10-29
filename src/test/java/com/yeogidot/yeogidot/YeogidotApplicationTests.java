@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 // Never load developer/production application*.properties in this smoke test.
 @SpringBootTest(properties = "spring.config.location=classpath:context-test.properties")
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 class YeogidotApplicationTests {
 
 	@MockitoBean S3Client s3Client;
@@ -22,6 +23,17 @@ class YeogidotApplicationTests {
 	@MockitoBean StringRedisTemplate redisTemplate;
 	@Autowired DataSource dataSource;
 	@Autowired ApplicationContext context;
+	@Autowired org.springframework.test.web.servlet.MockMvc mvc;
+
+	@Test
+	void readinessIsPublicButOtherRoutesStayProtected() throws Exception {
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/health/ready"))
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string("development"))
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "no-store"));
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/auth/me"))
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+	}
 
 	@Test
 	void contextLoads() throws Exception {

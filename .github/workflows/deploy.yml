@@ -2,82 +2,72 @@ name: Deploy to Oracle
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - feature/user-account
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 30
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: '21'
-          distribution: 'temurin'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build with Gradle
-        run: ./gradlew clean build -x test
-
-      - name: Verify R2 operations console
+      - name: Test and build deployment artifact
         run: |
-          bash -n scripts/r2-ops
+          bash -n scripts/r2-ops scripts/deploy-app.sh
           bash scripts/tests/test-r2-ops.sh
-          ./gradlew test --tests '*R2DeletionOperationsConsole*' --tests '*R2DeletionOperationsCliTest' --no-daemon
+          bash scripts/tests/test-deploy-app.sh
+          bash scripts/tests/test-deploy-process.sh
+          bash ./gradlew clean build --no-daemon
 
-      # ---------------- SSH 설정 ----------------
-      - name: Setup SSH
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-test-reports
+          path: |
+            build/reports/tests/test/
+            build/test-results/test/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Deploy verified artifact
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_KEY: ${{ secrets.GCP_SSH_KEY }}
+          HEALTH_URL: ${{ vars.DEPLOY_HEALTH_URL }}
         run: |
-          mkdir -p ~/.ssh
-          printf "%s\n" "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 134.185.96.154 >> ~/.ssh/known_hosts
-
-      # ---------------- 키 파일 확인 ----------------
-      - name: Verify SSH Key
-        run: |
-          if [ ! -s ~/.ssh/id_rsa ]; then
-            echo "❌ SSH KEY FILE IS EMPTY"
-            exit 1
-          else
-            echo "✅ SSH KEY FILE EXISTS"
-            ls -l ~/.ssh/id_rsa
-          fi
-
-      # ---------------- 배포 ----------------
-      - name: Deploy to Oracle
-        run: |
-          # JAR 파일 복사
-          scp -i ~/.ssh/id_rsa build/libs/yeogidot-0.0.1-SNAPSHOT.jar ubuntu@134.185.96.154:~/
-          scp -i ~/.ssh/id_rsa scripts/r2-ops ubuntu@134.185.96.154:~/r2-ops.incoming
-
-          ssh -i ~/.ssh/id_rsa ubuntu@134.185.96.154 << 'EOF'
-            set -e
-            # 설치만 한다. 콘솔 실행/실패 작업 재처리는 배포 중 수행하지 않는다.
-            bash -n ~/r2-ops.incoming
-            chmod 700 ~/r2-ops.incoming
-            # 기존 프로세스 종료
-            pkill -f yeogidot.jar || true
-          
-            # 새 JAR 파일로 교체
-            mv ~/yeogidot-0.0.1-SNAPSHOT.jar ~/app/yeogidot.jar
-            mv ~/r2-ops.incoming ~/app/r2-ops
-          
-            # app 디렉토리로 이동 후 실행
-            cd ~/app
-          
-            # 애플리케이션 실행
-            nohup java -Xms512m -Xmx2g -Dspring.profiles.active=prod -jar yeogidot.jar > app.log 2>&1 &        
-          
-            # 프로세스 확인
-            sleep 3
-            ps aux | grep yeogidot.jar | grep -v grep
-          EOF
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ -n "$DEPLOY_KEY" && -n "$DEPLOY_KNOWN_HOSTS" ]]
+          HEALTH_URL=${HEALTH_URL:-http://127.0.0.1:8080/health/ready}
+          [[ "$HEALTH_URL" =~ ^http://127\.0\.0\.1:[0-9]+/health/ready$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_rsa
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_rsa ~/.ssh/known_hosts
+          ssh-keygen -F "$DEPLOY_HOST" -f ~/.ssh/known_hosts >/dev/null
+          opts=(-i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          release="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          remote="${DEPLOY_USER}@${DEPLOY_HOST}"
+          incoming="deploy-incoming/$release"
+          mkdir -p staging
+          cp build/libs/yeogidot-0.0.1-SNAPSHOT.jar staging/yeogidot.jar
+          cp scripts/r2-ops scripts/deploy-app.sh staging/
+          (cd staging && sha256sum yeogidot.jar r2-ops deploy-app.sh > SHA256SUMS)
+          ssh "${opts[@]}" "$remote" "umask 077; mkdir -p '$incoming'"
+          scp "${opts[@]}" staging/* "$remote:$incoming/"
+          ssh "${opts[@]}" "$remote" "cd '$incoming' && sha256sum --check SHA256SUMS && bash -n deploy-app.sh && bash deploy-app.sh \"\$HOME/app\" \"\$HOME/$incoming\" '$release' '$HEALTH_URL'"

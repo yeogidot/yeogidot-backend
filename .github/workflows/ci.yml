@@ -24,8 +24,10 @@ jobs:
           java-version: '21'
       - name: Validate console shell scripts
         run: |
-          bash -n scripts/r2-ops
+          bash -n scripts/r2-ops scripts/deploy-app.sh
           bash scripts/tests/test-r2-ops.sh
+          bash scripts/tests/test-deploy-app.sh
+          bash scripts/tests/test-deploy-process.sh
       - name: Test and build (no production credentials)
         run: bash ./gradlew clean build --no-daemon
       - name: Upload test reports
