@@ -3,6 +3,9 @@ name: Deploy to Oracle
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 permissions:
   contents: read
