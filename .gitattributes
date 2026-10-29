@@ -1,2 +1,5 @@
 scripts/r2-ops text eol=lf
 scripts/tests/test-r2-ops.sh text eol=lf
+scripts/deploy-app.sh text eol=lf
+scripts/tests/test-deploy-app.sh text eol=lf
+scripts/tests/test-deploy-process.sh text eol=lf
