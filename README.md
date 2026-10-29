@@ -124,6 +124,5 @@ flowchart TD
 - **복구 범위:** 이전 JAR·운영 콘솔·배포 버전 기록 복원. 복구 후 헬스체크에 실패하면 수동 조치 필요. 재시작 중 서비스가 중단되며 DB 변경은 복구하지 않음
 - **검증:** 2026.10.29 운영 배포에서 HTTP 200과 새 버전 일치 확인. 시작 실패·시간 초과·롤백은 테스트 환경에서 검증
 
-PR 검사 실패 시 병합을 막으려면 저장소의 필수 검사 설정이 필요합니다. 외부 MySQL·Redis·Kakao·R2 연동 테스트와 선택적 벤치마크는 별도 실행 조건을 사용합니다. 배포 완료 후 발생하는 장애를 상시 감시하거나 자동 복구하는 구조는 아닙니다.
-
-[배포 개선 PR #49](https://github.com/yeogidot/yeogidot-backend/pull/49) · [PR 검사](.github/workflows/ci.yml) · [배포 워크플로](.github/workflows/deploy.yml) · [배포 스크립트](scripts/deploy-app.sh) · [배포 테스트](scripts/tests/test-deploy-app.sh) · [Linux 프로세스·HTTP 테스트](scripts/tests/test-deploy-process.sh)
+외부 서비스 연동 테스트와 벤치마크는 별도로 실행합니다. 자동 복구는 배포 중 실패에만 적용됩니다.
+[배포 개선 PR #49](https://github.com/yeogidot/yeogidot-backend/pull/49)
