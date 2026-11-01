@@ -1,0 +1,20 @@
+[Unit]
+Description=Yeogidot MySQL logical backup
+After=mysql.service
+
+[Service]
+Type=oneshot
+User=yeogidot-backup
+Group=yeogidot-backup
+UMask=0077
+Environment=RETENTION_DAYS=14
+ExecStart=/usr/local/sbin/yeogidot-mysql-backup /etc/yeogidot-backup/client.cnf yeogidot /var/backups/yeogidot-mysql
+TimeoutStartSec=30min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/yeogidot-mysql
+StandardOutput=journal
+StandardError=journal
+

@@ -46,3 +46,18 @@ src/main/resources/application.yml
 src/main/resources/application-*.yml
 
 *.md
+
+# Database backup data and private client configuration
+*.sql.gz
+*.sql.zst
+*.sql.age
+*.sql.gz.age
+*.cnf
+!scripts/backup-config/*.cnf.example
+/mysql-backups/
+!scripts/MYSQL-BACKUP.md
+*.tar.age
+age.key
+r2.env
+__pycache__/
+healthchecks.env
