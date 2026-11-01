@@ -14,3 +14,6 @@ scripts/backup-config/*.conf text eol=lf
 scripts/mysql-backup-notify.py text eol=lf
 scripts/tests/test-mysql-backup-notify.py text eol=lf
 scripts/tests/test-mysql-backup-monitor-systemd.sh text eol=lf
+scripts/monitoring/*.alloy text eol=lf
+scripts/monitoring/*.conf text eol=lf
+scripts/monitoring/*.example text eol=lf
