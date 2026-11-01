@@ -1,0 +1,6 @@
+# Copy OUTSIDE Git, substitute locally, chmod 600; never log the completed file.
+[client]
+user=yeogidot_backup
+password=REPLACE_ON_SERVER_ONLY
+protocol=SOCKET
+socket=/var/run/mysqld/mysqld.sock
