@@ -122,24 +122,51 @@ deploy() {
     HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-90} STOP_TIMEOUT=${STOP_TIMEOUT:-30}
     [[ $RELEASE =~ ^[a-zA-Z0-9_-]+$ ]] || { fail 'Invalid release ID'; return 1; }
     [[ $HEALTH_URL =~ ^http://127\.0\.0\.1:[0-9]+/health/ready$ ]] || { fail 'Health URL must be loopback /health/ready'; return 1; }
-    [[ $HEALTH_TIMEOUT =~ ^[1-9][0-9]*$ && $STOP_TIMEOUT =~ ^[1-9][0-9]*$ ]] || return 1
-    local tool
-    for tool in java curl flock sha256sum unzip; do command -v "$tool" >/dev/null || return 1; done
-    APP_DIR=$(cd "$APP_DIR" && pwd -P)
-    INCOMING=$(cd "$INCOMING" && pwd -P)
-    [[ $APP_DIR != "$INCOMING" ]] || return 1
-    exec 9>"$APP_DIR/.deploy.lock"
+    [[ $HEALTH_TIMEOUT =~ ^[1-9][0-9]*$ ]] || { fail 'HEALTH_TIMEOUT must be a positive integer'; return 1; }
+    [[ $STOP_TIMEOUT =~ ^[1-9][0-9]*$ ]] || { fail 'STOP_TIMEOUT must be a positive integer'; return 1; }
+    local tool file directory
+    for tool in java curl flock sha256sum unzip bash readlink grep cat nohup cp chmod mkdir rm sleep; do
+        command -v "$tool" >/dev/null 2>&1 || { fail "Required command not found: $tool"; return 1; }
+    done
+    [[ -d $APP_DIR && -x $APP_DIR && -w $APP_DIR ]] || {
+        fail 'Application directory must exist and allow directory access and writes'; return 1;
+    }
+    [[ -d $INCOMING && -r $INCOMING && -x $INCOMING ]] || {
+        fail 'Incoming directory must exist and allow reads and directory access'; return 1;
+    }
+    APP_DIR=$(cd "$APP_DIR" && pwd -P) || { fail 'Cannot resolve application directory'; return 1; }
+    INCOMING=$(cd "$INCOMING" && pwd -P) || { fail 'Cannot resolve incoming directory'; return 1; }
+    [[ $APP_DIR != "$INCOMING" ]] || { fail 'Application and incoming directories must be different'; return 1; }
+    for file in SHA256SUMS yeogidot.jar r2-ops; do
+        [[ -f $INCOMING/$file && -r $INCOMING/$file ]] || {
+            fail "Required deployment file is missing or unreadable: $file"; return 1;
+        }
+    done
+    for file in yeogidot.jar r2-ops deployment.release app.pid .deploy.lock; do
+        [[ ! -e $APP_DIR/$file || ( -f $APP_DIR/$file && -r $APP_DIR/$file && -w $APP_DIR/$file ) ]] || {
+            fail "Existing application file must be a readable, writable regular file: $file"; return 1;
+        }
+    done
+    for directory in deploy-backups logs; do
+        [[ ! -e $APP_DIR/$directory || ( -d $APP_DIR/$directory && -r $APP_DIR/$directory && -w $APP_DIR/$directory && -x $APP_DIR/$directory ) ]] || {
+            fail "Application subdirectory must allow reads, directory access and writes: $directory"; return 1;
+        }
+    done
+    if ! { exec 9>"$APP_DIR/.deploy.lock"; }; then
+        fail 'Cannot open deployment lock file'; return 1;
+    fi
     flock -n 9 || { fail 'Another deployment is running'; return 1; }
-    (cd "$INCOMING" && sha256sum --check SHA256SUMS) || return 1
-    unzip -tq "$INCOMING/yeogidot.jar" >/dev/null || return 1
-    bash -n "$INCOMING/r2-ops" || return 1
+    (cd "$INCOMING" && sha256sum --check SHA256SUMS) || { fail 'Deployment checksum verification failed'; return 1; }
+    unzip -tq "$INCOMING/yeogidot.jar" >/dev/null 2>&1 || { fail 'Deployment JAR is invalid or damaged'; return 1; }
+    bash -n "$INCOMING/r2-ops" 2>/dev/null || { fail 'r2-ops failed Bash syntax validation'; return 1; }
     BACKUP="$APP_DIR/deploy-backups/$RELEASE"
     [[ ! -e $BACKUP ]] || { fail 'Release already attempted; use a new run ID'; return 1; }
-    mkdir -p "$APP_DIR/deploy-backups" "$APP_DIR/logs"
-    mkdir "$BACKUP"
-    local file
+    mkdir -p "$APP_DIR/deploy-backups" "$APP_DIR/logs" || { fail 'Cannot create backup or log directories'; return 1; }
+    mkdir "$BACKUP" || { fail 'Cannot create release backup directory'; return 1; }
     for file in yeogidot.jar r2-ops deployment.release; do
-        [[ ! -f "$APP_DIR/$file" ]] || cp -p "$APP_DIR/$file" "$BACKUP/$file"
+        if [[ -f $APP_DIR/$file ]]; then
+            cp -p "$APP_DIR/$file" "$BACKUP/$file" || { fail "Cannot back up current application file: $file"; return 1; }
+        fi
     done
     MUTATING=true
     trap on_failure ERR
