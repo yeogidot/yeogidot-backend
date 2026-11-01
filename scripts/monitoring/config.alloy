@@ -1,0 +1,42 @@
+// Metrics only: no application logs, SQL text, user IDs, photos or request bodies.
+// Credentials come from a root-owned EnvironmentFile, never from this file.
+prometheus.exporter.unix "yeogidot" {
+}
+
+prometheus.scrape "linux" {
+  targets = prometheus.exporter.unix.yeogidot.targets
+  job_name = "integrations/node_exporter"
+  scrape_interval = "60s"
+  forward_to = [prometheus.relabel.linux.receiver]
+}
+
+prometheus.relabel "linux" {
+  // The unix exporter supplies its own job label, overriding scrape job_name.
+  rule {
+    target_label = "job"
+    replacement = "integrations/node_exporter"
+  }
+  rule {
+    target_label = "instance"
+    replacement = "yeogidot-production"
+  }
+  forward_to = [prometheus.remote_write.cloud.receiver]
+}
+
+prometheus.scrape "spring" {
+  targets = [{"__address__" = "127.0.0.1:9091", "instance" = "yeogidot-production"}]
+  job_name = "yeogidot/spring"
+  metrics_path = "/actuator/prometheus"
+  scrape_interval = "60s"
+  forward_to = [prometheus.remote_write.cloud.receiver]
+}
+
+prometheus.remote_write "cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_PROMETHEUS_URL")
+    basic_auth {
+      username = sys.env("GRAFANA_PROMETHEUS_USER")
+      password = sys.env("GRAFANA_METRICS_TOKEN")
+    }
+  }
+}

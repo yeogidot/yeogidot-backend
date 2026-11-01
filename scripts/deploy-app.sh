@@ -43,7 +43,7 @@ start_app() {
         trap - ERR INT TERM HUP
         cd "$APP_DIR" || exit 1
         # Java must not inherit the deploy lock or SSH input.
-        nohup java -Xms512m -Xmx2g -Dspring.profiles.active=prod \
+        nohup java -Xms512m -Xmx2g -Dspring.profiles.active=prod,observability \
             "-Ddeployment.release=$release" -jar "$APP_DIR/yeogidot.jar" \
             </dev/null >>"$log_file" 2>&1 9>&- &
         echo "$!" > "$APP_DIR/app.pid"

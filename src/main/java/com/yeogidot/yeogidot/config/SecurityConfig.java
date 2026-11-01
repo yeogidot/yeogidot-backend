@@ -54,6 +54,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/health/ready").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/health/ready").permitAll()
                         // OPTIONS 요청 (CORS preflight) 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 

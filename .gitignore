@@ -61,3 +61,6 @@ age.key
 r2.env
 __pycache__/
 healthchecks.env
+!scripts/APP-MONITORING.md
+!src/main/resources/application-observability.properties
+grafana.env

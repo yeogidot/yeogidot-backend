@@ -31,10 +31,34 @@ class YeogidotApplicationTests {
 			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
 			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string("development"))
 			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "no-store"));
-		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/auth/me"))
+		        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head("/health/ready"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "no-store"));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head("/api/auth/me"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/health/ready"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/auth/me"))
 			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
 	}
 
+    @Test
+    void monitoringReturnsUnavailableWhenNotReady() throws Exception {
+        org.springframework.boot.availability.AvailabilityChangeEvent.publish(context,
+                org.springframework.boot.availability.ReadinessState.REFUSING_TRAFFIC);
+        try {
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/health/ready"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isServiceUnavailable())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string("NOT_READY"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "no-store"));
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head("/health/ready"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isServiceUnavailable())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "no-store"));
+        } finally {
+            org.springframework.boot.availability.AvailabilityChangeEvent.publish(context,
+                    org.springframework.boot.availability.ReadinessState.ACCEPTING_TRAFFIC);
+        }
+    }
 	@Test
 	void contextLoads() throws Exception {
 		try (var connection = dataSource.getConnection()) {
