@@ -28,6 +28,12 @@ jobs:
           bash scripts/tests/test-r2-ops.sh
           bash scripts/tests/test-deploy-app.sh
           bash scripts/tests/test-deploy-process.sh
+      - name: Test encrypted photo backup (synthetic data only)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y age
+          python3 scripts/tests/test-photo-backup.py
+          python3 scripts/tests/test-mysql-backup-notify.py
       - name: Test and build (no production credentials)
         run: bash ./gradlew clean build --no-daemon
       - name: Upload test reports

@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily Yeogidot photo backup
+
+[Timer]
+OnCalendar=*-*-* 03:40:00 Asia/Seoul
+RandomizedDelaySec=5min
+Persistent=true
+Unit=photo-backup.service
+
+[Install]
+WantedBy=timers.target
+

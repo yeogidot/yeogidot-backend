@@ -38,6 +38,15 @@ class Tests(unittest.TestCase):
         for url in [BASE.replace('https:','http:'),BASE+'?secret=1',BASE.replace('hc-ping.com','evil.invalid'),BASE+'/fail']:
             with self.assertRaises(ValueError): n.send_ping(url,'success',Opener([]))
         with self.assertRaises(ValueError): n.send_ping(BASE,'unknown',Opener([]))
+    def test_photo_payload_is_distinct_and_rejects_unknown_kind(self):
+        for mode in ('success','fail'):
+            opener=Opener([b'OK'])
+            n.send_ping(BASE,mode,opener,kind='photos')
+            req,_=opener.requests[0]
+            self.assertIn(b'photo backup',req.data)
+            self.assertNotIn(b'DB',req.data)
+        with self.assertRaises(ValueError):
+            n.send_ping(BASE,'success',Opener([]),kind='unknown')
     def test_no_redirect(self):
         self.assertIsNone(n.NoRedirect().redirect_request(None,None,302,'',{},'https://evil.invalid'))
 if __name__=='__main__': unittest.main()

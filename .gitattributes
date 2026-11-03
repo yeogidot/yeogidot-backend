@@ -17,3 +17,6 @@ scripts/tests/test-mysql-backup-monitor-systemd.sh text eol=lf
 scripts/monitoring/*.alloy text eol=lf
 scripts/monitoring/*.conf text eol=lf
 scripts/monitoring/*.example text eol=lf
+scripts/photo-backup.py text eol=lf
+scripts/tests/test-photo-backup.py text eol=lf
+scripts/backup-config/*.env.example text eol=lf
