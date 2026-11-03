@@ -64,3 +64,8 @@ healthchecks.env
 !scripts/APP-MONITORING.md
 !src/main/resources/application-observability.properties
 grafana.env
+
+# Private photo backup credentials and restored photo data
+photo-backup.env
+/photo-backups/
+/photo-restores/
