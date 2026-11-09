@@ -12,7 +12,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
-import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 
@@ -29,11 +28,13 @@ public class JwtTokenProvider {
     private final UserDetailsService userDetailsService; // DB에서 유저 정보 찾아오는 친구
 
     private Key key;
+    private JwtParser jwtParser;
 
     @PostConstruct
     protected void init() {
         byte[] keyBytes = Base64.getDecoder().decode(secretKey);
         this.key = Keys.hmacShaKeyFor(keyBytes);
+        this.jwtParser = Jwts.parserBuilder().setSigningKey(key).build();
     }
 
     // 토큰 생성
@@ -52,42 +53,18 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    //  토큰에서 인증 정보 조회
-    public Authentication getAuthentication(String token) {
-        UserDetails userDetails = userDetailsService.loadUserByUsername(this.getEmail(token));
+    Authentication getAuthenticationByEmail(String email) {
+        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
 
-    // 토큰에서 회원 정보 추출
-    public String getEmail(String token) {
-        return Jwts.parserBuilder().setSigningKey(key).build()
-                .parseClaimsJws(token)
-                .getBody().getSubject();
-    }
-
-    // 토큰 유효성 검사
-    public boolean validateToken(String token) {
-        try {
-            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
+    Claims parseClaims(String token) {
+        return jwtParser.parseClaimsJws(token).getBody();
     }
 
     // 토큰 남은 만료 시간 반환 (ms)
     public long getExpiration(String token) {
-        Date expiration = Jwts.parserBuilder().setSigningKey(key).build()
-                .parseClaimsJws(token)
-                .getBody().getExpiration();
+        Date expiration = parseClaims(token).getExpiration();
         return expiration.getTime() - System.currentTimeMillis();
-    }
-
-    // 토큰 발급 시각(iat) 반환
-    public Instant getIssuedAt(String token) {
-        Date issuedAt = Jwts.parserBuilder().setSigningKey(key).build()
-                .parseClaimsJws(token)
-                .getBody().getIssuedAt();
-        return issuedAt.toInstant();
     }
 }

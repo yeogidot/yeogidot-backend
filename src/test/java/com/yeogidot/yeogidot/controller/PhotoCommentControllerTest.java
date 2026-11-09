@@ -6,6 +6,7 @@ import com.yeogidot.yeogidot.exception.*;
 import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.security.JwtTokenProvider;
 import com.yeogidot.yeogidot.service.PhotoService;
+import com.yeogidot.yeogidot.service.CustomUserDetailsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,7 +16,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 
 /** 실제 SecurityConfig/JWT 필터/MVC를 사용하며 DB와 Redis는 mock으로 격리한다. */
 @SpringJUnitConfig(PhotoCommentControllerTest.Config.class)
-@TestPropertySource(properties = {"jwt.expiration=3600000", "jwt.secret=test-only-unused-secret"})
+@TestPropertySource(properties = {"jwt.expiration=3600000", "jwt.secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="})
 @WebAppConfiguration
 class PhotoCommentControllerTest {
     @Autowired WebApplicationContext context;
@@ -45,12 +45,13 @@ class PhotoCommentControllerTest {
     @Autowired UserRepository users;
     @Autowired JwtTokenProvider tokens;
     @Autowired StringRedisTemplate redis;
+    private String authorization;
     private MockMvc mvc;
     private User writer;
 
     @BeforeEach
     void setUp() {
-        reset(photos, users, tokens, redis);
+        reset(photos, users, redis);
         writer = User.builder().id(7L).email("writer@example.test").password("test-only")
                 .nickname("Writer").passwordChangedAt(Instant.EPOCH).build();
         mvc = webAppContextSetup(context)
@@ -69,7 +70,7 @@ class PhotoCommentControllerTest {
     void registrationKeepsLegacyIdAndAddsCommentIdUsingTheAuthenticatedWriter() throws Exception {
         login();
         when(photos.createComment(eq(10L), any(), same(writer))).thenReturn(42L);
-        mvc.perform(post("/api/photos/10/comments").header("Authorization", "Bearer valid-token")
+        mvc.perform(post("/api/photos/10/comments").header("Authorization", authorization)
                 .contentType("application/json").content("{\"content\":\"hello\",\"writerId\":99}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.cmentId").value(42))
@@ -80,7 +81,7 @@ class PhotoCommentControllerTest {
     @Test
     void newUpdatePassesBothIdsAndKeepsTheExistingSuccessStatus() throws Exception {
         login();
-        mvc.perform(request("PUT").header("Authorization", "Bearer valid-token"))
+        mvc.perform(request("PUT").header("Authorization", authorization))
                 .andExpect(status().isOk()).andExpect(content().string(""));
         verify(photos).updateComment(eq(10L), eq(42L), argThat(r -> r.getContent().equals("hello")), same(writer));
         verify(photos, never()).updateCommentByPhotoId(anyLong(), any(), any());
@@ -89,7 +90,7 @@ class PhotoCommentControllerTest {
     @Test
     void newDeletePassesBothIdsAndReturns204() throws Exception {
         login();
-        mvc.perform(request("DELETE").header("Authorization", "Bearer valid-token"))
+        mvc.perform(request("DELETE").header("Authorization", authorization))
                 .andExpect(status().isNoContent());
         verify(photos).deleteComment(10L, 42L, writer);
         verify(photos, never()).deleteCommentByPhotoId(anyLong(), any());
@@ -105,7 +106,7 @@ class PhotoCommentControllerTest {
         } else {
             doThrow(new ResourceNotFoundException("댓글", 42L)).when(photos).deleteComment(10L, 42L, writer);
         }
-        mvc.perform(request(method).header("Authorization", "Bearer valid-token"))
+        mvc.perform(request(method).header("Authorization", authorization))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
@@ -119,7 +120,7 @@ class PhotoCommentControllerTest {
         } else {
             doThrow(new SecurityException("댓글을 삭제할 권한이 없습니다.")).when(photos).deleteComment(10L, 42L, writer);
         }
-        mvc.perform(request(method).header("Authorization", "Bearer valid-token"))
+        mvc.perform(request(method).header("Authorization", authorization))
                 .andExpect(status().isForbidden());
     }
 
@@ -133,7 +134,7 @@ class PhotoCommentControllerTest {
         } else {
             doThrow(new CommentSelectionRequiredException()).when(photos).deleteCommentByPhotoId(10L, writer);
         }
-        mvc.perform(request(method).header("Authorization", "Bearer valid-token"))
+        mvc.perform(request(method).header("Authorization", authorization))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("COMMENT_SELECTION_REQUIRED"));
     }
@@ -141,9 +142,9 @@ class PhotoCommentControllerTest {
     @Test
     void legacySuccessPathsRemainAvailable() throws Exception {
         login();
-        mvc.perform(request("LEGACY_PUT").header("Authorization", "Bearer valid-token"))
+        mvc.perform(request("LEGACY_PUT").header("Authorization", authorization))
                 .andExpect(status().isOk());
-        mvc.perform(request("LEGACY_DELETE").header("Authorization", "Bearer valid-token"))
+        mvc.perform(request("LEGACY_DELETE").header("Authorization", authorization))
                 .andExpect(status().isNoContent());
         verify(photos).updateCommentByPhotoId(eq(10L), any(), same(writer));
         verify(photos).deleteCommentByPhotoId(10L, writer);
@@ -154,7 +155,7 @@ class PhotoCommentControllerTest {
     void allWriteEndpointsRejectMissingOrBlankContent(String body) throws Exception {
         login();
         for (String method : List.of("POST", "PUT", "LEGACY_PUT")) {
-            mvc.perform(request(method).header("Authorization", "Bearer valid-token").content(body))
+            mvc.perform(request(method).header("Authorization", authorization).content(body))
                     .andExpect(status().isBadRequest());
         }
         verifyNoInteractions(photos);
@@ -180,11 +181,7 @@ class PhotoCommentControllerTest {
 
     private void login() {
         when(users.findByEmail(writer.getEmail())).thenReturn(Optional.of(writer));
-        when(tokens.validateToken("valid-token")).thenReturn(true);
-        when(tokens.getEmail("valid-token")).thenReturn(writer.getEmail());
-        when(tokens.getIssuedAt("valid-token")).thenReturn(Instant.now());
-        when(tokens.getAuthentication("valid-token")).thenReturn(
-                new UsernamePasswordAuthenticationToken(writer.getEmail(), null, List.of()));
+        authorization = "Bearer " + tokens.createToken(writer.getId(), writer.getEmail());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -194,7 +191,9 @@ class PhotoCommentControllerTest {
     static class Config {
         @Bean PhotoService photoService() { return mock(PhotoService.class); }
         @Bean UserRepository userRepository() { return mock(UserRepository.class); }
-        @Bean JwtTokenProvider jwtTokenProvider() { return mock(JwtTokenProvider.class); }
+        @Bean JwtTokenProvider jwtTokenProvider(UserRepository users) {
+            return new JwtTokenProvider(new CustomUserDetailsService(users));
+        }
         @Bean StringRedisTemplate redisTemplate() { return mock(StringRedisTemplate.class); }
     }
 }
