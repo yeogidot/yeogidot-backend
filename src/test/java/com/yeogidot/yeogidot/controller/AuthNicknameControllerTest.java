@@ -8,6 +8,7 @@ import com.yeogidot.yeogidot.exception.*;
 import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.security.JwtTokenProvider;
 import com.yeogidot.yeogidot.service.AuthService;
+import com.yeogidot.yeogidot.service.CustomUserDetailsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +16,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 
 /** 실제 SecurityConfig와 JWT 필터를 통과시키되 DB/Redis는 mock으로 격리한다. */
 @SpringJUnitConfig(AuthNicknameControllerTest.Config.class)
-@org.springframework.test.context.TestPropertySource(properties = {"jwt.expiration=3600000", "jwt.secret=test-only-unused-secret"})
+@org.springframework.test.context.TestPropertySource(properties = {"jwt.expiration=3600000", "jwt.secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="})
 @WebAppConfiguration
 class AuthNicknameControllerTest {
     @Autowired WebApplicationContext context;
@@ -43,11 +43,12 @@ class AuthNicknameControllerTest {
     @Autowired UserRepository users;
     @Autowired JwtTokenProvider tokens;
     @Autowired StringRedisTemplate redis;
+    private String authorization;
     MockMvc mvc;
 
     @BeforeEach
     void setup() {
-        reset(auth, users, tokens, redis);
+        reset(auth, users, redis);
         mvc = webAppContextSetup(context)
                 .addFilter(new org.springframework.web.filter.CharacterEncodingFilter("UTF-8", true))
                 .apply(springSecurity()).build();
@@ -57,11 +58,7 @@ class AuthNicknameControllerTest {
         User user = User.builder().id(7L).email("me@example.com").password("secret")
                 .passwordChangedAt(Instant.EPOCH).build();
         when(users.findByEmail("me@example.com")).thenReturn(Optional.of(user));
-        when(tokens.validateToken("valid-token")).thenReturn(true);
-        when(tokens.getEmail("valid-token")).thenReturn("me@example.com");
-        when(tokens.getIssuedAt("valid-token")).thenReturn(Instant.now());
-        when(tokens.getAuthentication("valid-token")).thenReturn(
-                new UsernamePasswordAuthenticationToken("me@example.com", null, List.of()));
+        authorization = "Bearer " + tokens.createToken(user.getId(), user.getEmail());
     }
 
     @Test
@@ -75,7 +72,7 @@ class AuthNicknameControllerTest {
     @Test
     void profileShowsUnsetNicknameWithoutExposingPassword() throws Exception {
         loginFixture();
-        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer valid-token"))
+        mvc.perform(get("/api/auth/me").header("Authorization", authorization))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.userId").value(7))
                 .andExpect(jsonPath("$.nicknameRequired").value(true))
                 .andExpect(jsonPath("$.password").doesNotExist())
@@ -87,7 +84,7 @@ class AuthNicknameControllerTest {
         loginFixture();
         when(auth.changeNickname(7L, "여행자")).thenReturn(
                 new MyProfileResponse(7L, "me@example.com", "여행자", false));
-        mvc.perform(patch("/api/auth/nickname").header("Authorization", "Bearer valid-token")
+        mvc.perform(patch("/api/auth/nickname").header("Authorization", authorization)
                 .contentType("application/json").content("{\"nickname\":\"여행자\",\"userId\":99}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.nickname").value("여행자"))
                 .andExpect(jsonPath("$.nicknameRequired").value(false));
@@ -98,7 +95,7 @@ class AuthNicknameControllerTest {
     void duplicateNicknameReturns409() throws Exception {
         loginFixture();
         when(auth.changeNickname(7L, "Taken")).thenThrow(new DuplicateNicknameException());
-        mvc.perform(patch("/api/auth/nickname").header("Authorization", "Bearer valid-token")
+        mvc.perform(patch("/api/auth/nickname").header("Authorization", authorization)
                 .contentType("application/json").content("{\"nickname\":\"Taken\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("NICKNAME_ALREADY_EXISTS"));
@@ -116,7 +113,7 @@ class AuthNicknameControllerTest {
     void invalidNicknameReturns400() throws Exception {
         loginFixture();
         when(auth.changeNickname(7L, " ")).thenThrow(new IllegalArgumentException("닉네임 형식 오류"));
-        mvc.perform(patch("/api/auth/nickname").header("Authorization", "Bearer valid-token")
+        mvc.perform(patch("/api/auth/nickname").header("Authorization", authorization)
                 .contentType("application/json").content("{\"nickname\":\" \"}"))
                 .andExpect(status().isBadRequest());
     }
@@ -125,8 +122,7 @@ class AuthNicknameControllerTest {
     void invalidTokenIsRejectedByFilter() throws Exception {
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer invalid-token"))
                 .andExpect(status().isUnauthorized());
-        verify(tokens).validateToken("invalid-token");
-        verifyNoInteractions(auth, users);
+        verifyNoInteractions(auth, users, redis);
     }
 
     @Test
@@ -151,7 +147,9 @@ class AuthNicknameControllerTest {
         }
         @Bean AuthService authService() { return mock(AuthService.class); }
         @Bean UserRepository userRepository() { return mock(UserRepository.class); }
-        @Bean JwtTokenProvider jwtTokenProvider() { return mock(JwtTokenProvider.class); }
+        @Bean JwtTokenProvider jwtTokenProvider(UserRepository users) {
+            return new JwtTokenProvider(new CustomUserDetailsService(users));
+        }
         @Bean StringRedisTemplate redisTemplate() { return mock(StringRedisTemplate.class); }
     }
 }

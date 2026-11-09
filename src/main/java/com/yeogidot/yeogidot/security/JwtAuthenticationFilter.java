@@ -1,5 +1,7 @@
 package com.yeogidot.yeogidot.security;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -54,55 +55,49 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // 1. 요청 헤더에서 JWT 토큰 추출
         String token = resolveToken(request);
+        if (token == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-        // 2. 토큰이 있는데 유효하지 않으면 즉시 401 반환
-        if (token != null && !jwtTokenProvider.validateToken(token)) {
+        Claims claims;
+        try {
+            claims = jwtTokenProvider.parseClaims(token);
+        } catch (JwtException | IllegalArgumentException e) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "유효하지 않은 토큰입니다.");
             return;
         }
 
-        // 3. 블랙리스트 토큰(로그아웃된 토큰) 차단
-        if (token != null && Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token))) {
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token))) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "이미 로그아웃된 토큰입니다.");
             return;
         }
 
-        // 4. passwordChangedAt 검증 — 비밀번호 변경 이전에 발급된 토큰 거부
-        //    (모든 기기에서 로그아웃 효과)
-        if (token != null) {
-            try {
-                String email = jwtTokenProvider.getEmail(token);
-                User user = userRepository.findByEmail(email).orElse(null);
-                if (user != null) {
-                    Instant issuedAt = jwtTokenProvider.getIssuedAt(token);
-                    if (issuedAt.isBefore(user.getPasswordChangedAt())) {
-                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "비밀번호가 변경되어 재로그인이 필요합니다.");
-                        return;
-                    }
+        String email;
+        try {
+            email = claims.getSubject();
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user != null) {
+                Instant issuedAt = claims.getIssuedAt().toInstant();
+                if (issuedAt.isBefore(user.getPasswordChangedAt())) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "비밀번호가 변경되어 재로그인이 필요합니다.");
+                    return;
                 }
-            } catch (Exception e) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "유효하지 않은 토큰입니다.");
-                return;
             }
+        } catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+            return;
         }
 
-        // 5. 토큰이 유효하면 인증 처리
-        //    회원탈퇴 후 만료되지 않은 토큰으로 요청 시 DB에 유저가 없어
-        //    UsernameNotFoundException 발생 → 필터 레이어라 @RestControllerAdvice 미적용
-        //    직접 catch해서 401 반환
-        if (token != null) {
-            try {
-                Authentication auth = jwtTokenProvider.getAuthentication(token);
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            } catch (UsernameNotFoundException e) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "존재하지 않는 사용자입니다.");
-                return;
-            }
+        try {
+            Authentication auth = jwtTokenProvider.getAuthenticationByEmail(email);
+            SecurityContextHolder.getContext().setAuthentication(auth);
+        } catch (UsernameNotFoundException e) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "존재하지 않는 사용자입니다.");
+            return;
         }
 
-        // 6. 다음 필터로 진행
         filterChain.doFilter(request, response);
     }
 
