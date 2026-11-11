@@ -16,6 +16,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -102,41 +103,29 @@ public class TravelService {
             throw new BadRequestException("대표 사진을 올바르게 선택해주세요.");
         }
 
-        List<Photo> photos = requestedPhotos
-                .stream()
-                .filter(photo -> photo.getTakenAt() != null)
-                .collect(Collectors.toList());
-
-        if (photos.isEmpty()) {
-            throw new IllegalArgumentException("사진에 촬영 날짜 정보가 없습니다.");
-        }
-
-        // 3단계: 사진 날짜 수집
-        List<LocalDate> photoDates = photos.stream()
-                .map(photo -> photo.getTakenAt().toLocalDate())
-                .distinct()
-                .sorted()
-                .collect(Collectors.toList());
+        boolean hasExplicitPeriod = request.getStartDate() != null && request.getEndDate() != null;
+        NavigableMap<LocalDate, List<Photo>> photosByDate = groupPhotosByDate(
+                requestedPhotos, hasExplicitPeriod ? request.getStartDate() : null);
 
         // 4단계: 여행 기간 결정
         LocalDate startDate;
         LocalDate endDate;
 
-        if (request.getStartDate() != null && request.getEndDate() != null) {
+        if (hasExplicitPeriod) {
             // 사용자가 직접 입력한 날짜 사용
             startDate = request.getStartDate();
             endDate = request.getEndDate();
         } else {
             // 사진 날짜 기반 자동 생성
-            startDate = photoDates.get(0);
-            endDate = photoDates.get(photoDates.size() - 1);
+            startDate = photosByDate.firstKey();
+            endDate = photosByDate.lastKey();
         }
 
         // 5단계: 지역명 자동 결정 (위도/경도 기반)
         String trvRegion = request.getTrvRegion();
         if (trvRegion == null || trvRegion.isEmpty()) {
             // 가장 많이 등장하는 지역명 찾기
-            Map<String, Long> regionCount = photos.stream()
+            Map<String, Long> regionCount = requestedPhotos.stream()
                     .filter(photo -> photo.getLatitude() != null && photo.getLongitude() != null)
                     .map(photo -> geoCodingService.getRegionFromCoordinates(
                             photo.getLatitude(),
@@ -168,70 +157,53 @@ public class TravelService {
 
         travelRepository.save(travel);
 
-        // 7단계: 사진이 있는 날짜만 TravelDay 생성
-        Map<LocalDate, TravelDay> dayMap = new HashMap<>();
+        // 7단계: 사진을 일차에 연결하고 지역을 설정한다.
         int dayNumber = 1;
 
-        for (LocalDate photoDate : photoDates) {
+        for (var entry : photosByDate.entrySet()) {
             TravelDay day = TravelDay.builder()
                     .travel(travel)
                     .dayNumber(dayNumber++)
-                    .date(photoDate)
+                    .date(entry.getKey())
                     .build();
             travelDayRepository.save(day);
-            dayMap.put(photoDate, day);
-        }
-
-        // 8단계: 사진을 해당 날짜의 TravelDay에 배치하고 dayRegion 설정
-        // 이미 2단계에서 조회한 photos 리스트 재사용 (추가 DB 조회 없음)
-        for (Photo photo : photos) {
-            LocalDate photoDate = photo.getTakenAt().toLocalDate();
-            TravelDay matchingDay = dayMap.get(photoDate);
-
-            if (matchingDay != null) {
-                photo.setTravelDay(matchingDay);
+            for (Photo photo : entry.getValue()) {
+                photo.setTravelDay(day);
                 photoRepository.save(photo);
             }
-        }
-
-        // 9단계: 각 TravelDay의 dayRegion 자동 설정
-        for (LocalDate photoDate : photoDates) {
-            TravelDay day = dayMap.get(photoDate);
-
-            // 해당 날짜의 사진들 수집
-            List<Photo> dayPhotos = photos.stream()
-                    .filter(p -> p.getTakenAt().toLocalDate().equals(photoDate))
-                    .collect(Collectors.toList());
-
-            // 사진 위치 기반으로 dayRegion 결정
-            Map<String, Long> regionCount = dayPhotos.stream()
-                    .filter(photo -> photo.getLatitude() != null && photo.getLongitude() != null)
-                    .map(photo -> {
-                        GeoCodingService.RegionInfo regionInfo = geoCodingService.getDetailedRegion(
-                                photo.getLatitude(),
-                                photo.getLongitude()
-                        );
-                        return regionInfo != null ? regionInfo.getRegion2depth() : null;
-                    })
-                    .filter(region -> region != null)
-                    .collect(Collectors.groupingBy(
-                            region -> region,
-                            Collectors.counting()
-                    ));
-
-            String dayRegion = regionCount.entrySet().stream()
-                    .max(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey)
-                    .orElse(null);
-
-            if (dayRegion != null) {
-                day.updateDayRegion(dayRegion);
-                travelDayRepository.save(day);
-                log.info("✅ 일차 {} 지역 설정: {}", day.getDayNumber(), dayRegion);
-            }
+            updateDayRegionFromPhotos(day, entry.getValue());
         }
 
         return travel.getId();
+    }
+
+    private NavigableMap<LocalDate, List<Photo>> groupPhotosByDate(List<Photo> photos, LocalDate explicitStartDate) {
+        NavigableMap<LocalDate, List<Photo>> photosByDate = new TreeMap<>();
+        List<Photo> undatedPhotos = new ArrayList<>();
+        for (Photo photo : photos) {
+            if (photo.getTakenAt() == null) {
+                undatedPhotos.add(photo);
+            } else {
+                LocalDate captureDate = photo.getTakenAt().toLocalDate();
+                photosByDate.computeIfAbsent(captureDate, date -> new ArrayList<>()).add(photo);
+            }
+        }
+        if (undatedPhotos.isEmpty()) {
+            return photosByDate;
+        }
+
+        // 일차에만 대체 날짜를 사용하고 사진의 촬영 일시는 비워 둔다.
+        LocalDate groupDate = photosByDate.isEmpty() ? explicitStartDate : photosByDate.firstKey();
+        if (groupDate == null) {
+            groupDate = undatedPhotos.stream()
+                    .map(Photo::getCreatedDate)
+                    .filter(Objects::nonNull)
+                    .map(LocalDateTime::toLocalDate)
+                    .min(LocalDate::compareTo)
+                    .orElseGet(LocalDate::now);
+        }
+        photosByDate.computeIfAbsent(groupDate, date -> new ArrayList<>()).addAll(undatedPhotos);
+        return photosByDate;
     }
 
     // === 여행 상세 조회 (N+1 해결 + 조회 시 데이터 수정 제거) ===
@@ -757,10 +729,6 @@ public class TravelService {
                         "본인의 사진만 추가할 수 있습니다. 사진 ID: " + photoId
                 );
 
-                if (photo.getTakenAt() == null) {
-                    throw new IllegalArgumentException("사진 ID " + photoId + "에 촬영 날짜 정보가 없습니다.");
-                }
-
                 validatedFinalPhotos.add(photo);
                 finalPhotoMap.put(photoId, photo);
             }
@@ -823,86 +791,53 @@ public class TravelService {
                 log.info("🗑️ DB 사진 삭제 예약: Photo ID {}", photo.getId());
             }
 
-            Set<LocalDate> finalPhotoDates = finalPhotos.stream()
-                    .map(photo -> photo.getTakenAt().toLocalDate())
-                    .collect(Collectors.toSet());
-
+            NavigableMap<LocalDate, List<Photo>> photosByDate = groupPhotosByDate(finalPhotos, null);
             Map<LocalDate, TravelDay> dayMap = new HashMap<>();
+            List<TravelDay> obsoleteDays = new ArrayList<>();
             for (TravelDay existingDay : existingDays) {
-                if (finalPhotoDates.contains(existingDay.getDate())) {
+                if (photosByDate.containsKey(existingDay.getDate())) {
                     dayMap.put(existingDay.getDate(), existingDay);
                 } else {
-                    travelDayRepository.delete(existingDay);
-                    log.info("🗑️ 빈 일차 삭제: Day {} ({})", existingDay.getDayNumber(), existingDay.getDate());
+                    obsoleteDays.add(existingDay);
                 }
             }
-            travelDayRepository.flush();
 
             if (!finalPhotos.isEmpty()) {
-                List<LocalDate> photoDates = finalPhotoDates.stream()
-                        .sorted()
-                        .collect(Collectors.toList());
+                if (existingDays.size() == 1 && dayMap.isEmpty()) {
+                    TravelDay previousDay = existingDays.getFirst();
+                    LocalDate firstDate = photosByDate.firstKey();
+                    boolean keepsUndatedPhoto = photosByDate.get(firstDate).stream()
+                            .anyMatch(photo -> photo.getTakenAt() == null && photo.getTravelDay() != null
+                                    && previousDay.getId().equals(photo.getTravelDay().getId()));
+                    if (keepsUndatedPhoto) {
+                        // 촬영일이 정해져도 기존 사진과 함께 작성한 일기를 유지한다.
+                        previousDay.updateDate(firstDate);
+                        dayMap.put(firstDate, previousDay);
+                        obsoleteDays.remove(previousDay);
+                    }
+                }
 
-                for (LocalDate photoDate : photoDates) {
-                    if (!dayMap.containsKey(photoDate)) {
-                        TravelDay newDay = TravelDay.builder()
+                int dayNumber = 1;
+                for (var entry : photosByDate.entrySet()) {
+                    LocalDate date = entry.getKey();
+                    TravelDay day = dayMap.get(date);
+                    if (day == null) {
+                        day = TravelDay.builder()
                                 .travel(travel)
-                                .dayNumber(0)
-                                .date(photoDate)
+                                .dayNumber(dayNumber)
+                                .date(date)
                                 .build();
-                        travelDayRepository.save(newDay);
-                        dayMap.put(photoDate, newDay);
-                        log.info("➕ 새 일차 생성: {}", photoDate);
+                        travelDayRepository.save(day);
                     }
-                }
-
-                List<TravelDay> sortedDays = dayMap.values().stream()
-                        .sorted(Comparator.comparing(TravelDay::getDate))
-                        .collect(Collectors.toList());
-
-                for (int index = 0; index < sortedDays.size(); index++) {
-                    TravelDay sortedDay = sortedDays.get(index);
-                    sortedDay.updateDayNumber(index + 1);
-                    travelDayRepository.save(sortedDay);
-                }
-
-                for (Photo photo : finalPhotos) {
-                    TravelDay matchingDay = dayMap.get(photo.getTakenAt().toLocalDate());
-                    photo.setTravelDay(matchingDay);
-                    photoRepository.save(photo);
-                    log.info("📸 사진 {} → Day {} 연결", photo.getId(), matchingDay.getDayNumber());
-                }
-
-                for (LocalDate photoDate : photoDates) {
-                    TravelDay targetDay = dayMap.get(photoDate);
-                    List<Photo> dayPhotos = finalPhotos.stream()
-                            .filter(photo -> photo.getTakenAt().toLocalDate().equals(photoDate))
-                            .collect(Collectors.toList());
-
-                    Map<String, Long> regionCount = dayPhotos.stream()
-                            .filter(photo -> photo.getLatitude() != null && photo.getLongitude() != null)
-                            .map(photo -> {
-                                GeoCodingService.RegionInfo regionInfo = geoCodingService.getDetailedRegion(
-                                        photo.getLatitude(),
-                                        photo.getLongitude()
-                                );
-                                return regionInfo != null ? regionInfo.getRegion2depth() : null;
-                            })
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.groupingBy(region -> region, Collectors.counting()));
-
-                    String dayRegion = regionCount.entrySet().stream()
-                            .max(Map.Entry.comparingByValue())
-                            .map(Map.Entry::getKey)
-                            .orElse(null);
-
-                    if (dayRegion != null) {
-                        targetDay.updateDayRegion(dayRegion);
-                        travelDayRepository.save(targetDay);
+                    day.updateDayNumber(dayNumber++);
+                    for (Photo photo : entry.getValue()) {
+                        photo.setTravelDay(day);
+                        photoRepository.save(photo);
                     }
+                    updateDayRegionFromPhotos(day, entry.getValue());
                 }
 
-                travel.updateDates(photoDates.get(0), photoDates.get(photoDates.size() - 1));
+                travel.updateDates(photosByDate.firstKey(), photosByDate.lastKey());
 
                 Map<String, Long> travelRegionCount = finalPhotos.stream()
                         .filter(photo -> photo.getLatitude() != null && photo.getLongitude() != null)
@@ -920,6 +855,12 @@ public class TravelService {
                 travel.updateTrvRegion(newTravelRegion);
             } else {
                 log.warn("⚠️ 모든 사진이 삭제되었습니다. 여행 ID: {}", travelId);
+            }
+
+            if (!obsoleteDays.isEmpty()) {
+                // 유지하는 사진의 일차 변경을 먼저 반영해 연쇄 삭제를 방지한다.
+                photoRepository.flush();
+                travelDayRepository.deleteAll(obsoleteDays);
             }
 
             if (request.getRepresentativePhotoId() != null) {

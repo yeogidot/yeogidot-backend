@@ -53,7 +53,7 @@ public class Photo extends BaseTimeEntity {
     @Column(precision = 11, scale = 8)
     private BigDecimal longitude;
 
-    @Column(name = "taken_at", nullable = false)
+    @Column(name = "taken_at")
     private LocalDateTime takenAt;
 
     // 지역 정보 (시/도 + 시/군/구, 예: "부산광역시 부산진구")
