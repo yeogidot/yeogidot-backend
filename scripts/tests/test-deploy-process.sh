@@ -4,11 +4,13 @@ set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TEMP=$(mktemp -d)
 cleanup() {
-    for file in "$TEMP"/*/app/app.pid; do
+    for file in "$TEMP"/*/app/{app,old}.pid; do
         [[ -f $file ]] || continue
         pid=$(cat "$file")
         # Only processes launched from this test's interpreter can be stopped.
-        [[ $(readlink "/proc/$pid/exe" 2>/dev/null || true) != "$TEMP/bin/java" ]] || kill "$pid" 2>/dev/null || true
+        case $(readlink "/proc/$pid/exe" 2>/dev/null || true) in
+            "$TEMP/bin/java"|"$TEMP/bin/java (deleted)") kill "$pid" 2>/dev/null || true ;;
+        esac
     done
     rm -rf -- "$TEMP"
 }
@@ -48,7 +50,7 @@ start_app() {
 deploy "$1" "$2" "$3" "http://127.0.0.1:$PORT/health/ready"
 SH
 
-for scenario in success exit timeout; do
+for scenario in success exit timeout replaced-java; do
     mkdir -p "$TEMP/$scenario/app" "$TEMP/$scenario/incoming"
     app="$TEMP/$scenario/app" incoming="$TEMP/$scenario/incoming"
     PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
@@ -58,12 +60,21 @@ for scenario in success exit timeout; do
     (cd "$incoming" && sha256sum yeogidot.jar r2-ops > SHA256SUMS)
     bash "$TEMP/runner.sh" "$app" "$incoming" old > "$TEMP/$scenario/old.log" 2>&1
     old_pid=$(cat "$app/app.pid")
+    if [[ $scenario == replaced-java ]]; then
+        # A package update can unlink the executable while the old process still serves HTTP.
+        printf '%s\n' "$old_pid" > "$app/old.pid"
+        rm -- "$TEMP/bin/java"
+        cp "$(readlink -f "$(command -v python3)")" "$TEMP/bin/java"
+        [[ $(readlink "/proc/$old_pid/exe") == "$TEMP/bin/java (deleted)" ]]
+    fi
     printf '%s' "$scenario" > "$incoming/yeogidot.jar"
     (cd "$incoming" && sha256sum yeogidot.jar r2-ops > SHA256SUMS)
     status=0
     bash "$TEMP/runner.sh" "$app" "$incoming" new > "$TEMP/$scenario/new.log" 2>&1 || status=$?
     expected=old
-    if [[ $scenario == success ]]; then [[ $status == 0 ]]; expected=new
+    if [[ $scenario == success || $scenario == replaced-java ]]; then
+        if [[ $status != 0 ]]; then cat "$TEMP/$scenario/new.log" >&2; exit 1; fi
+        expected=new
     else [[ $status != 0 ]]; grep -q 'Previous version HTTP recovery confirmed' "$TEMP/$scenario/new.log"
     fi
     [[ $(curl --fail --silent --max-time 2 "http://127.0.0.1:$PORT/health/ready") == "$expected" ]]

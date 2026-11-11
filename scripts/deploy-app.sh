@@ -8,6 +8,8 @@ find_app_pids() {
     for entry in /proc/[0-9]*; do
         [[ -O "$entry" && -r "$entry/cmdline" ]] || continue
         executable=$(readlink "$entry/exe" 2>/dev/null) || continue
+        # Linux appends this suffix if a package update replaces a running executable.
+        executable=${executable%" (deleted)"}
         [[ ${executable##*/} == java ]] || continue
         previous=''
         while IFS= read -r -d '' arg; do

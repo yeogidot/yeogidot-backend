@@ -30,8 +30,18 @@ jobs:
           bash scripts/tests/test-deploy-process.sh
       - name: Test encrypted photo backup (synthetic data only)
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y age
+          age_version=v1.3.2
+          age_dir=$(mktemp -d)
+          trap 'rm -rf -- "$age_dir"' EXIT
+          age_archive="$age_dir/age.tar.gz"
+          curl --fail --silent --show-error --location --retry 2 --retry-max-time 90 \
+            --connect-timeout 10 --max-time 60 --output "$age_archive" \
+            "https://github.com/FiloSottile/age/releases/download/$age_version/age-$age_version-linux-amd64.tar.gz"
+          # SHA-256 published for the Linux amd64 archive on the upstream release.
+          printf '%s  %s\n' cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10 "$age_archive" | sha256sum --check
+          tar -xzf "$age_archive" -C "$age_dir" age/age age/age-keygen
+          export PATH="$age_dir/age:$PATH"
+          age --version
           python3 scripts/tests/test-photo-backup.py
           python3 scripts/tests/test-mysql-backup-notify.py
       - name: Test and build (no production credentials)
