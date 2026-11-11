@@ -56,6 +56,10 @@ public class TravelDay extends BaseTimeEntity {
         this.dayNumber = dayNumber;
     }
 
+    public void updateDate(LocalDate date) {
+        this.date = date;
+    }
+
     // dayRegion 업데이트 메서드
     public void updateDayRegion(String dayRegion) {
         this.dayRegion = dayRegion;
