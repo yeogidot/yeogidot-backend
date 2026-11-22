@@ -17,6 +17,7 @@ import com.yeogidot.yeogidot.observability.UploadTiming;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -57,6 +58,9 @@ public class PhotoService {
     private final TravelDayRepository travelDayRepository;
     private final OwnershipValidator ownershipValidator;
     private final R2DeletionTaskService r2DeletionTasks;
+
+    @Value("${app.frontend.base-url}")
+    private String frontendBaseUrl;
 
     /**
      * 프론트엔드에서 받는 메타데이터 DTO
@@ -409,12 +413,12 @@ public class PhotoService {
                 .collect(Collectors.toList());
     }
 
-    // 로그인한 사용자는 같은 사진에 여러 댓글을 작성할 수 있다. 공유 접근 정책은 별도 적용한다.
     @Transactional
-    public Long createComment(Long photoId, TravelDto.CommentRequest request, User user) {
+    public Long createComment(Long photoId, TravelDto.CommentCreateRequest request, User user) {
         validateCommentContent(request);
         Photo photo = photoRepository.findByIdForCommentMutation(photoId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사진입니다."));
+                .filter(candidate -> canCreateComment(candidate, user, request.getShareToken()))
+                .orElseThrow(() -> new ResourceNotFoundException("댓글을 작성할 수 있는 사진", photoId));
 
         Comment cment = Comment.builder()
                 .photo(photo)
@@ -423,6 +427,19 @@ public class PhotoService {
                 .build();
 
         return commentRepository.save(cment).getId();
+    }
+
+    private boolean canCreateComment(Photo photo, User user, String shareToken) {
+        if (photo.getUser().getId().equals(user.getId())) {
+            return true;
+        }
+        if (shareToken == null || shareToken.isBlank()) {
+            return false;
+        }
+
+        TravelDay day = photo.getTravelDay();
+        Travel travel = day != null ? day.getTravel() : null;
+        return travel != null && (frontendBaseUrl + "/share/" + shareToken).equals(travel.getShareUrl());
     }
 
     // 댓글 ID와 사진 ID를 함께 확인해 다른 사진의 댓글을 변경하지 못하게 한다.

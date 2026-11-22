@@ -26,6 +26,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -66,16 +67,31 @@ class PhotoCommentControllerTest {
         verifyNoInteractions(photos, users);
     }
 
-    @Test
-    void registrationKeepsLegacyIdAndAddsCommentIdUsingTheAuthenticatedWriter() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void registrationKeepsIdsAndUsesTheAuthenticatedWriter(boolean shared) throws Exception {
         login();
+        String body = shared ? "{\"content\":\"hello\",\"writerId\":99,\"shareToken\":\"shared-test-token\"}"
+                : "{\"content\":\"hello\",\"writerId\":99}";
+        String expectedToken = shared ? "shared-test-token" : null;
         when(photos.createComment(eq(10L), any(), same(writer))).thenReturn(42L);
-        mvc.perform(post("/api/photos/10/comments").header("Authorization", authorization)
-                .contentType("application/json").content("{\"content\":\"hello\",\"writerId\":99}"))
+        mvc.perform(request("POST").header("Authorization", authorization).content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.cmentId").value(42))
                 .andExpect(jsonPath("$.commentId").value(42));
-        verify(photos).createComment(eq(10L), argThat(r -> r.getContent().equals("hello")), same(writer));
+        verify(photos).createComment(eq(10L),
+                argThat(r -> r.getContent().equals("hello") && Objects.equals(r.getShareToken(), expectedToken)),
+                same(writer));
+    }
+
+    @Test
+    void photoWithoutCommentAccessReturnsNotFound() throws Exception {
+        login();
+        when(photos.createComment(eq(10L), any(), same(writer)))
+                .thenThrow(new ResourceNotFoundException("댓글을 작성할 수 있는 사진", 10L));
+        mvc.perform(request("POST").header("Authorization", authorization))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
     @Test

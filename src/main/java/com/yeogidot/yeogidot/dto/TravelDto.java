@@ -46,13 +46,25 @@ public class TravelDto {
         private String content;
     }
 
-    // 사진 댓글 생성/수정 요청
+    // 사진 댓글 내용 요청
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CommentRequest {
         @NotBlank(message = "댓글 내용을 입력해주세요.")
         private String content;
+    }
+
+    // 사진 댓글 등록 요청
+    @Getter
+    @NoArgsConstructor
+    public static class CommentCreateRequest extends CommentRequest {
+        private String shareToken;
+
+        public CommentCreateRequest(String content, String shareToken) {
+            super(content);
+            this.shareToken = shareToken;
+        }
     }
 
     // 여행 날짜 수동 추가 요청
