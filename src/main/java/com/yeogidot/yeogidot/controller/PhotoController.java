@@ -304,24 +304,13 @@ public class PhotoController {
     /**
      * 사진 코멘트 작성
      */
-    @Operation(summary = "사진 댓글 작성", description = "로그인한 사용자는 같은 사진에 여러 댓글을 작성할 수 있습니다. 공유 열람 권한 정책은 별도입니다.")
+    @Operation(summary = "사진 댓글 작성",
+            description = "사진 소유자는 content를 보내 작성합니다. 다른 로그인 사용자는 사진이 속한 여행의 shareToken도 보내야 합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "코멘트 작성 성공"),
             @ApiResponse(
                     responseCode = "400",
-                    description = "잘못된 요청",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    value = """
-                                            {
-                                              "status": 400,
-                                              "error": "BAD_REQUEST",
-                                              "message": "존재하지 않는 사진입니다."
-                                            }
-                                            """
-                            )
-                    )
+                    description = "댓글 내용 누락 또는 공백"
             ),
             @ApiResponse(
                     responseCode = "401",
@@ -339,12 +328,13 @@ public class PhotoController {
                                             """
                             )
                     )
-            )
+            ),
+            @ApiResponse(responseCode = "404", description = "댓글을 작성할 수 있는 사진을 찾을 수 없음")
     })
     @PostMapping("/photos/{photoId}/comments")
     public ResponseEntity<?> createComment(
             @PathVariable Long photoId,
-            @Valid @RequestBody TravelDto.CommentRequest request
+            @Valid @RequestBody TravelDto.CommentCreateRequest request
     ) {
         User user = getCurrentUser();
         Long cmentId = photoService.createComment(photoId, request, user);

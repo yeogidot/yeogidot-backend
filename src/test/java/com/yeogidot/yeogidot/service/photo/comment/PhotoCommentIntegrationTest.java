@@ -188,7 +188,8 @@ class PhotoCommentIntegrationTest {
         Fixture f = fixture();
         Long id = write(f, "original");
         long before = comments.count();
-        assertThatThrownBy(() -> photos.createComment(f.photoId(), request(content), f.writer()))
+        var createRequest = new TravelDto.CommentCreateRequest(content, f.shareToken());
+        assertThatThrownBy(() -> photos.createComment(f.photoId(), createRequest, f.writer()))
                 .isInstanceOf(BadRequestException.class);
         assertThatThrownBy(() -> photos.updateComment(f.photoId(), id, request(content), f.writer()))
                 .isInstanceOf(BadRequestException.class);
@@ -208,8 +209,42 @@ class PhotoCommentIntegrationTest {
     @Test
     void missingPhotoCannotReceiveAComment() {
         Fixture f = fixture();
-        assertThatThrownBy(() -> photos.createComment(Long.MAX_VALUE, request("text"), f.writer()))
-                .isInstanceOf(IllegalArgumentException.class);
+        var request = new TravelDto.CommentCreateRequest("text", f.shareToken());
+        assertThatThrownBy(() -> photos.createComment(Long.MAX_VALUE, request, f.writer()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void ownerCanWriteOnAnUnsharedTravelWithoutAToken() {
+        Fixture f = fixture();
+        clearShareLink(f);
+
+        Long id = photos.createComment(f.photoId(), new TravelDto.CommentCreateRequest("owner", null), f.owner());
+
+        assertThat(content(id)).isEqualTo("owner");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "not-the-travel-token"})
+    void nonOwnerNeedsTheCorrectShareToken(String token) {
+        Fixture f = fixture();
+        assertCommentNotCreated(f.photoId(), f.writer(), token);
+    }
+
+    @Test
+    void tokenFromAnotherTravelCannotAuthorizeThePhoto() {
+        Fixture f = fixture();
+        Fixture anotherTravel = fixture();
+        assertCommentNotCreated(f.photoId(), f.writer(), anotherTravel.shareToken());
+    }
+
+    @Test
+    void nonOwnerCannotCommentWithAnOldTokenOrOnAnUnattachedPhoto() {
+        Fixture f = fixture();
+        assertCommentNotCreated(f.otherPhotoId(), f.writer(), f.shareToken());
+        clearShareLink(f);
+        assertCommentNotCreated(f.photoId(), f.writer(), f.shareToken());
     }
 
     @Test
@@ -217,7 +252,8 @@ class PhotoCommentIntegrationTest {
         Fixture f = fixture();
         write(f, "first");
         write(f, "second");
-        photos.createComment(f.photoId(), request("legacy writer"), f.other());
+        var guestRequest = new TravelDto.CommentCreateRequest("legacy writer", f.shareToken());
+        photos.createComment(f.photoId(), guestRequest, f.other());
 
         var statistics = factory.unwrap(SessionFactory.class).getStatistics();
         statistics.clear();
@@ -295,7 +331,20 @@ class PhotoCommentIntegrationTest {
     }
 
     private Long write(Fixture f, String content) {
-        return photos.createComment(f.photoId(), request(content), f.writer());
+        return photos.createComment(f.photoId(), new TravelDto.CommentCreateRequest(content, f.shareToken()), f.writer());
+    }
+
+    private void clearShareLink(Fixture f) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+                entityManager.find(Travel.class, f.travelId()).updateShareUrl(null));
+    }
+
+    private void assertCommentNotCreated(Long photoId, User user, String token) {
+        long before = comments.count();
+        var request = new TravelDto.CommentCreateRequest("forbidden", token);
+        assertThatThrownBy(() -> photos.createComment(photoId, request, user))
+                .isInstanceOf(ResourceNotFoundException.class);
+        assertThat(comments.count()).isEqualTo(before);
     }
 
     private String content(Long id) {
