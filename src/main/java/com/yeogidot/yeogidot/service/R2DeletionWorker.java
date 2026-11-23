@@ -29,6 +29,7 @@ public class R2DeletionWorker {
         var claim = claimed.get();
         try {
             storage.deleteFileStrict(claim.fileUrl());
+            storage.deleteMapThumbnailFor(claim.fileUrl());
         } catch (RuntimeException exception) {
             tasks.failed(claim, exception);
             return;

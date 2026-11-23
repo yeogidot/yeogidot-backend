@@ -34,6 +34,8 @@ import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -106,6 +108,7 @@ class R2DeletionBatchIntegrationTest {
         assertThat(tasks.readyIds()).isEmpty();
         for (String url : urls) {
             verify(storage, times(1)).deleteFileStrict(url);
+            verify(storage, times(1)).deleteMapThumbnailFor(url);
         }
         verifyNoMoreInteractions(storage);
     }
@@ -151,12 +154,37 @@ class R2DeletionBatchIntegrationTest {
             assertThat(completed.get(url).getAttemptCount()).isEqualTo(expectedAttempts);
             assertThat(completed.get(url).getLastError()).isNull();
             verify(storage, times(expectedAttempts)).deleteFileStrict(url);
+            verify(storage, times(1)).deleteMapThumbnailFor(url);
         }
         assertThat(files).isEmpty();
         assertThat(tasks.readyIds()).isEmpty();
         worker.runOnce();
         verifyNoMoreInteractions(storage);
         System.out.println("R2 partial recovery: completed=10, remainingFiles=0, deleteCalls=13 (7x1 + 3x2)");
+    }
+
+    @Test
+    void retriesWhenOnlyThumbnailDeletionFails() {
+        List<String> urls = enqueueTasks(1);
+        String url = urls.getFirst();
+        doNothing().when(storage).deleteFileStrict(url);
+        doThrow(new IllegalStateException("Injected thumbnail deletion failure"))
+                .doNothing().when(storage).deleteMapThumbnailFor(url);
+
+        worker.runOnce();
+
+        R2DeletionTask pending = tasksByUrl(urls).get(url);
+        assertThat(pending.getStatus()).isEqualTo(R2DeletionTask.Status.PENDING);
+        assertThat(pending.getAvailableAt()).isEqualTo(clock.instant().plusSeconds(settings.initialRetrySeconds()));
+
+        clock.advance(settings.initialRetrySeconds());
+        worker.runOnce();
+
+        R2DeletionTask completed = tasksByUrl(urls).get(url);
+        assertThat(completed.getStatus()).isEqualTo(R2DeletionTask.Status.COMPLETED);
+        assertThat(completed.getAttemptCount()).isEqualTo(2);
+        verify(storage, times(2)).deleteFileStrict(url);
+        verify(storage, times(2)).deleteMapThumbnailFor(url);
     }
 
     private List<String> enqueueTasks(int count) {

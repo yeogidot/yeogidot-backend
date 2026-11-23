@@ -46,6 +46,7 @@ dependencies {
 
 	/* ───────────── Image 압축 ───────────── */
 	implementation 'net.coobird:thumbnailator:0.4.20'
+	runtimeOnly 'com.twelvemonkeys.imageio:imageio-webp:3.13.1'
 
 	/* ───────────── Redis ───────────── */
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'

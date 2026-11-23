@@ -214,7 +214,7 @@ public class AuthService {
         // 1. DB 삭제 후에도 사용할 수 있도록 R2 URL만 미리 보관한다.
         List<Photo> allPhotos = photoRepository.findByUserId(userId);
         List<String> fileUrlsToDelete = allPhotos.stream()
-                .map(Photo::getFilePath)
+                .flatMap(photo -> photo.storageFileUrls().stream())
                 .toList();
 
         // 2. 내가 다른 사람 사진에 작성한 댓글 삭제 (writer_id = userId)

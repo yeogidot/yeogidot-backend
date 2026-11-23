@@ -1,17 +1,21 @@
 package com.yeogidot.yeogidot.service;
 
+import com.yeogidot.yeogidot.entity.Photo;
 import com.yeogidot.yeogidot.observability.UploadTiming;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.builders.ThumbnailParameterBuilder;
 import net.coobird.thumbnailator.tasks.io.InputStreamImageSource;
+import net.coobird.thumbnailator.util.exif.ExifFilterUtils;
+import net.coobird.thumbnailator.util.exif.ExifUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -42,6 +46,9 @@ public class GcsService {
 
     @Value("${r2.public-url}")
     private String publicUrl;
+
+    private static final int MAP_THUMBNAIL_SIZE = 192;
+    private static final long MAX_WEBP_THUMBNAIL_PIXELS = 64_000_000;
 
     private final S3Client s3Client;
 
@@ -89,6 +96,82 @@ public class GcsService {
         log.info("✅ R2 업로드 완료: {}", fileUrl);
 
         return fileUrl;
+    }
+
+    public byte[] createMapThumbnail(String fileUrl) throws IOException {
+        GetObjectRequest request = GetObjectRequest.builder().bucket(bucketName)
+                .key(requireR2Key(fileUrl))
+                .overrideConfiguration(config -> config.apiCallTimeout(Duration.ofSeconds(30))
+                        .apiCallAttemptTimeout(Duration.ofSeconds(20)))
+                .build();
+        try (var input = s3Client.getObject(request);
+             var imageInput = ImageIO.createImageInputStream(input)) {
+            if (imageInput == null) throw new IOException("썸네일 입력 스트림을 만들 수 없습니다.");
+            var readers = ImageIO.getImageReaders(imageInput);
+            if (!readers.hasNext()) throw new IOException("지원하지 않는 썸네일 원본 형식입니다.");
+            var reader = readers.next();
+            try {
+                reader.setInput(imageInput);
+                String format = reader.getFormatName();
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                // WebP 디코더는 투명 채널 처리 중 원본 크기의 버퍼를 할당할 수 있다.
+                if ("webp".equalsIgnoreCase(format) && (long) width * height > MAX_WEBP_THUMBNAIL_PIXELS) {
+                    throw new IOException("WebP 썸네일 처리 가능 해상도를 초과했습니다.");
+                }
+                int sampling = Math.max(1, Math.max(width, height) / (MAP_THUMBNAIL_SIZE * 2));
+                var params = reader.getDefaultReadParam();
+                params.setSourceSubsampling(sampling, sampling, 0, 0);
+                var orientation = "jpeg".equalsIgnoreCase(format)
+                        ? ExifUtils.getExifOrientation(reader, 0)
+                        : null;
+                BufferedImage decoded = reader.read(0, params);
+                BufferedImage oriented = decoded;
+                try {
+                    if (orientation != null) {
+                        oriented = ExifFilterUtils.getFilterForOrientation(orientation).apply(decoded);
+                    }
+                    double scale = Math.min(1.0, (double) MAP_THUMBNAIL_SIZE
+                            / Math.max(oriented.getWidth(), oriented.getHeight()));
+                    int targetWidth = Math.max(1, (int) Math.round(oriented.getWidth() * scale));
+                    int targetHeight = Math.max(1, (int) Math.round(oriented.getHeight() * scale));
+                    var output = new ByteArrayOutputStream();
+                    Thumbnails.of(oriented)
+                            .forceSize(targetWidth, targetHeight)
+                            .imageType(BufferedImage.TYPE_INT_RGB)
+                            .outputFormat("jpeg")
+                            .outputQuality(0.8)
+                            .toOutputStream(output);
+                    return output.toByteArray();
+                } finally {
+                    if (oriented != decoded) oriented.flush();
+                    decoded.flush();
+                }
+            } finally {
+                reader.dispose();
+            }
+        }
+    }
+
+    public void uploadMapThumbnail(String thumbnailUrl, byte[] content) {
+        PutObjectRequest request = PutObjectRequest.builder().bucket(bucketName)
+                .key(requireR2Key(thumbnailUrl)).contentType("image/jpeg")
+                .overrideConfiguration(config -> config.apiCallTimeout(Duration.ofSeconds(5))
+                        .apiCallAttemptTimeout(Duration.ofSeconds(3)))
+                .build();
+        s3Client.putObject(request, RequestBody.fromBytes(content));
+    }
+
+    /** 작업자는 잘못된 URL을 성공으로 간주하면 안 된다. */
+    private String requireR2Key(String fileUrl) {
+        if (publicUrl == null || publicUrl.isBlank()) {
+            throw new IllegalStateException("R2 public URL 설정이 없습니다.");
+        }
+        String prefix = publicUrl + "/";
+        if (fileUrl == null || !fileUrl.startsWith(prefix) || fileUrl.length() == prefix.length()) {
+            throw new IllegalArgumentException("설정된 R2 저장소의 파일 URL이 아닙니다.");
+        }
+        return fileUrl.substring(prefix.length());
     }
 
     /**
@@ -189,17 +272,13 @@ public class GcsService {
         log.info("R2 파일 삭제 완료: {}", objectName);
     }
 
+    public void deleteMapThumbnailFor(String originalUrl) {
+        deleteFileStrict(Photo.mapThumbnailObjectUrl(originalUrl));
+    }
+
     /** 작업자는 잘못된 URL을 성공으로 간주하면 안 된다. 기존 삭제 경로와 구분한다. */
     public void deleteFileStrict(String fileUrl) {
-        if (publicUrl == null || publicUrl.isBlank()) {
-            throw new IllegalStateException("R2 public URL 설정이 없습니다.");
-        }
-        // uploadFile()이 만든 URL과 같은 접두사를 사용해야 실제 저장된 키를 얻는다.
-        String prefix = publicUrl + "/";
-        if (fileUrl == null || !fileUrl.startsWith(prefix) || fileUrl.length() == prefix.length()) {
-            throw new IllegalArgumentException("설정된 R2 저장소의 파일 URL이 아닙니다.");
-        }
-        String key = fileUrl.substring(prefix.length());
+        String key = requireR2Key(fileUrl);
         DeleteObjectRequest request = DeleteObjectRequest.builder()
                 .bucket(bucketName).key(key)
                 .overrideConfiguration(config -> config

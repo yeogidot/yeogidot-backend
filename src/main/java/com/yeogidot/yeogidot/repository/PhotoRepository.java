@@ -3,10 +3,15 @@ package com.yeogidot.yeogidot.repository;
 import com.yeogidot.yeogidot.entity.Photo;
 import com.yeogidot.yeogidot.entity.TravelDay;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +27,34 @@ public interface PhotoRepository extends JpaRepository<Photo, Long> {
             "WHERE p.user.id = :userId " +
             "AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL")
     List<Photo> findAllByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT p FROM Photo p
+            WHERE p.thumbnailPath IS NULL AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+              AND p.thumbnailAttempts < :maxAttempts
+              AND (p.thumbnailRetryAt IS NULL OR p.thumbnailRetryAt <= :now)
+            ORDER BY p.id DESC
+            """)
+    List<Photo> findPendingMapThumbnails(@Param("now") LocalDateTime now,
+                                         @Param("maxAttempts") int maxAttempts, Pageable page);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            UPDATE Photo p SET p.thumbnailAttempts = p.thumbnailAttempts + 1, p.thumbnailRetryAt = :leaseUntil
+            WHERE p.id = :id AND p.thumbnailPath IS NULL AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+              AND p.thumbnailAttempts = :attempts
+              AND (p.thumbnailRetryAt IS NULL OR p.thumbnailRetryAt <= :now)
+            """)
+    int claimMapThumbnail(@Param("id") Long id, @Param("attempts") int attempts,
+                          @Param("now") LocalDateTime now, @Param("leaseUntil") LocalDateTime leaseUntil);
+
+    @Modifying
+    @Query("""
+            UPDATE Photo p SET p.thumbnailPath = :url, p.thumbnailRetryAt = NULL
+            WHERE p.id = :id AND p.thumbnailPath IS NULL AND p.thumbnailAttempts = :attempt
+            """)
+    int publishMapThumbnail(@Param("id") Long id, @Param("attempt") int attempt, @Param("url") String url);
 
     List<Photo> findByTravelDay(TravelDay travelDay);
 
