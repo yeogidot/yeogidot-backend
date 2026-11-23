@@ -260,7 +260,7 @@ public class TravelService {
         List<TravelDay> travelDays = travelDayRepository.findByTravelId(travelId);
         List<Photo> photos = photoRepository.findByTravelDayIn(travelDays);
         List<String> fileUrlsToDelete = photos.stream()
-                .map(Photo::getFilePath)
+                .flatMap(photo -> photo.storageFileUrls().stream())
                 .toList();
 
         // DB는 Cascade로 자동 삭제 (Travel -> TravelDay -> Photo, TravelLog, Cment 모두 자동)
@@ -308,7 +308,7 @@ public class TravelService {
 
         // DB 삭제 후에도 사용할 수 있도록 R2 URL만 미리 보관한다.
         List<String> fileUrlsToDelete = photos.stream()
-                .map(Photo::getFilePath)
+                .flatMap(photo -> photo.storageFileUrls().stream())
                 .toList();
 
         // 사진 먼저 DB에서 삭제 (Cascade 충돌 방지)
@@ -785,7 +785,7 @@ public class TravelService {
 
         if (replacePhotos) {
             for (Photo photo : photosToDelete) {
-                filesToDeleteAfterCommit.add(photo.getFilePath());
+                filesToDeleteAfterCommit.addAll(photo.storageFileUrls());
                 photo.setTravelDay(null);
                 photoRepository.delete(photo);
                 log.info("🗑️ DB 사진 삭제 예약: Photo ID {}", photo.getId());

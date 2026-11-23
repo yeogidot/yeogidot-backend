@@ -3,6 +3,7 @@ package com.yeogidot.yeogidot.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,12 +16,14 @@ import java.util.List;
  * - latitude, longitude는 EXIF가 없는 경우 nullable
  */
 @Entity
+@DynamicUpdate
 @Getter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "photo", indexes = {
-        @Index(name = "idx_photo_day_time", columnList = "day_id, taken_at")
+        @Index(name = "idx_photo_day_time", columnList = "day_id, taken_at"),
+        @Index(name = "idx_photo_thumbnail_pending", columnList = "thumbnail_attempts, thumbnail_retry_at, photo_id")
 })
 public class Photo extends BaseTimeEntity {
 
@@ -41,6 +44,18 @@ public class Photo extends BaseTimeEntity {
 
     @Column(name = "file_path", length = 2048, nullable = false)
     private String filePath;
+
+    @JsonIgnore
+    @Column(name = "thumbnail_path", length = 2048)
+    private String thumbnailPath;
+
+    @JsonIgnore
+    @Column(name = "thumbnail_attempts", nullable = false)
+    private int thumbnailAttempts;
+
+    @JsonIgnore
+    @Column(name = "thumbnail_retry_at")
+    private LocalDateTime thumbnailRetryAt;
 
     @Column(name = "original_name")
     private String originalName;
@@ -65,6 +80,19 @@ public class Photo extends BaseTimeEntity {
     @OrderBy("createdDate ASC")
     @Builder.Default
     private List<Comment> comments = new ArrayList<>();
+
+    public String mapThumbnailObjectUrl() {
+        return mapThumbnailObjectUrl(filePath);
+    }
+
+    public static String mapThumbnailObjectUrl(String originalUrl) {
+        return originalUrl + ".map-s.jpg";
+    }
+
+    public List<String> storageFileUrls() {
+        // 생성 중인 썸네일도 삭제할 수 있도록 원본에서 확정되는 키를 사용한다.
+        return List.of(filePath, mapThumbnailObjectUrl());
+    }
 
     // URL getter (filePath를 url로 사용)
     public String getUrl() {

@@ -408,7 +408,7 @@ public class PhotoService {
                         .photoId(photo.getId())
                         .latitude(photo.getLatitude())
                         .longitude(photo.getLongitude())
-                        .thumbnailUrl(photo.getFilePath())
+                        .thumbnailUrl(photo.getThumbnailPath() != null ? photo.getThumbnailPath() : photo.getFilePath())
                         .build())
                 .collect(Collectors.toList());
     }
