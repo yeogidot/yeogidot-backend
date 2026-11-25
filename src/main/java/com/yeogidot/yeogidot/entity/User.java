@@ -24,7 +24,7 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
-    // 전환 기간에는 기존 회원과 구버전 앱의 가입을 위해 null을 허용한다.
+    // 닉네임 없이 가입한 기존 회원의 데이터는 null일 수 있다.
     @Column(length = 20)
     private String nickname;
 

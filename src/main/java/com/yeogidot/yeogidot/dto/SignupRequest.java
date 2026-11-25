@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter; // 이게 있어야 함
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -9,7 +10,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class SignupRequest {
     private String email;
-    // 구버전 앱과 기존 가입 계약을 위해 전환 기간에는 생략 가능하다.
+    @Schema(description = "닉네임. 2~20자의 한글, 영문, 숫자, 밑줄을 사용할 수 있습니다.",
+            requiredMode = Schema.RequiredMode.REQUIRED, example = "바다여행")
     private String nickname;
     private String password;
     private String password_check;

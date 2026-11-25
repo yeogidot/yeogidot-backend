@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import java.math.BigDecimal;
@@ -52,6 +53,7 @@ public class TravelDto {
     @AllArgsConstructor
     public static class CommentRequest {
         @NotBlank(message = "댓글 내용을 입력해주세요.")
+        @Schema(description = "댓글 내용", example = "사진이 멋져요!")
         private String content;
     }
 
@@ -59,6 +61,8 @@ public class TravelDto {
     @Getter
     @NoArgsConstructor
     public static class CommentCreateRequest extends CommentRequest {
+        @Schema(description = "다른 사용자의 사진에 댓글을 작성할 때 필요한 여행 공유 토큰입니다. 공유 URL의 /share/ 뒤에 있는 값입니다.",
+                example = "abc-123-def")
         private String shareToken;
 
         public CommentCreateRequest(String content, String shareToken) {
@@ -139,11 +143,15 @@ public class TravelDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CommentDetail {
+        @Schema(description = "댓글 ID. 댓글 수정·삭제에 사용합니다.", example = "1")
         private Long commentId;
         private String content;
         private LocalDateTime createdAt;
+        @Schema(description = "작성자 계정 ID. GET /api/auth/me의 userId와 비교해 내 댓글을 구분할 수 있습니다.", example = "12")
         private Long writerId;
-        private String nickname; // 닉네임을 설정하지 않은 기존 회원은 null
+        @Schema(description = "댓글에 표시할 작성자의 닉네임. 닉네임을 설정하지 않은 계정은 null입니다.",
+                example = "바다여행", nullable = true)
+        private String nickname;
     }
 
     // 일기 상세 정보

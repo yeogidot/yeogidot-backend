@@ -168,7 +168,7 @@ public class TravelController {
     // 여행 상세 조회
     @Operation(
             summary = "특정 여행 상세 조회",
-            description = "여행 ID로 여행의 모든 일차, 사진, 로그, 댓글 정보를 포함한 상세 정보를 조회합니다"
+            description = "여행의 일차, 사진, 로그, 댓글을 조회합니다. 사진의 comments에는 작성자 ID와 닉네임이 포함됩니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -176,6 +176,7 @@ public class TravelController {
                     description = "여행 상세 조회 성공",
                     content = @Content(
                             mediaType = "application/json",
+                            schema = @Schema(implementation = TravelDto.DetailResponse.class),
                             examples = @ExampleObject(
                                     value = """
                                             {
@@ -203,12 +204,16 @@ public class TravelController {
                                                              {
                                                                "commentId": 1,
                                                                "content": "정말 아름다운 풍경이네요!",
-                                                               "createdAt": "2025-01-15T14:20:00Z"
+                                                               "createdAt": "2025-01-15T14:20:00",
+                                                               "writerId": 12,
+                                                               "nickname": "바다여행"
                                                              },
                                                              {
                                                                "commentId": 2,
                                                                "content": "다음에 또 가고 싶어요",
-                                                               "createdAt": "2025-01-15T15:10:00Z"
+                                                               "createdAt": "2025-01-15T15:10:00",
+                                                               "writerId": 18,
+                                                               "nickname": null
                                                              }
                                                            ]
                                                          },
@@ -971,7 +976,7 @@ public class TravelController {
     // 공유 URL로 여행 조회 (인증 불필요)
     @Operation(
             summary = "공유 URL로 여행 조회",
-            description = "공유 URL을 통해 여행 상세 정보를 조회합니다. 인증이 필요하지 않습니다."
+            description = "공유 토큰으로 여행을 조회합니다. 인증 없이 조회할 수 있고 사진의 comments에는 작성자 ID와 닉네임이 포함됩니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -979,6 +984,7 @@ public class TravelController {
                     description = "여행 조회 성공",
                     content = @Content(
                             mediaType = "application/json",
+                            schema = @Schema(implementation = TravelDto.DetailResponse.class),
                             examples = @ExampleObject(
                                     value = """
                                             {
@@ -999,7 +1005,16 @@ public class TravelController {
                                                       "url": "https://storage.googleapis.com/bucket/photo1.jpg",
                                                       "takenAt": "2025-01-15T10:30:00Z",
                                                       "latitude": 33.5145,
-                                                      "longitude": 126.5294
+                                                      "longitude": 126.5294,
+                                                      "comments": [
+                                                        {
+                                                          "commentId": 1,
+                                                          "content": "사진이 멋져요!",
+                                                          "createdAt": "2025-01-15T14:20:00",
+                                                          "writerId": 12,
+                                                          "nickname": "바다여행"
+                                                        }
+                                                      ]
                                                     }
                                                   ],
                                                   "diary": {

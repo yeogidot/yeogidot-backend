@@ -126,11 +126,11 @@ class AuthNicknameControllerTest {
     }
 
     @Test
-    void signupWithoutNicknameKeepsExistingResponse() throws Exception {
+    void signupPassesNicknameToServiceAndKeepsSuccessResponse() throws Exception {
         mvc.perform(post("/api/auth/signup").contentType("application/json")
-                .content("{\"email\":\"old@example.com\"}"))
+                .content("{\"email\":\"new@example.com\",\"nickname\":\"여행자\"}"))
                 .andExpect(status().isCreated()).andExpect(content().string("회원가입 성공"));
-        verify(auth).signup(argThat(request -> request.getNickname() == null), anyString());
+        verify(auth).signup(argThat(request -> "여행자".equals(request.getNickname())), anyString());
     }
 
     @TestConfiguration(proxyBeanMethods = false)

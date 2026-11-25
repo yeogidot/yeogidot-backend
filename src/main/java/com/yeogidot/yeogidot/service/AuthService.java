@@ -67,7 +67,7 @@ public class AuthService {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
 
-        Nickname nickname = request.getNickname() == null ? null : Nickname.of(request.getNickname());
+        Nickname nickname = Nickname.of(request.getNickname());
 
         // 기본 입력 검증을 통과한 요청만 회원가입 시도 횟수로 카운트
         checkSignupRateLimit(clientIp);
@@ -75,7 +75,7 @@ public class AuthService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
         }
-        if (nickname != null && userRepository.existsByNicknameKey(nickname.key())) {
+        if (userRepository.existsByNicknameKey(nickname.key())) {
             throw new DuplicateNicknameException();
         }
 
@@ -84,9 +84,7 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .build();
 
-        if (nickname != null) {
-            user.changeNickname(nickname.display());
-        }
+        user.changeNickname(nickname.display());
         saveUserWithNicknameCheck(user);
 
     }
