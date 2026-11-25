@@ -36,12 +36,16 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
 
-    @Operation(summary = "회원가입", description = "계정을 생성합니다. nickname은 전환 기간에 생략 가능하며, 입력 시 2~20자 한글/영문/숫자/밑줄만 허용합니다. 앞뒤 공백 제거와 NFC 정규화 후 대소문자까지 동일한 닉네임만 중복으로 판단하며, 중복 시 409를 반환합니다.")
+    @Operation(
+            summary = "회원가입",
+            description = "nickname은 필수이며 2~20자의 한글, 영문, 숫자, 밑줄을 사용할 수 있습니다. "
+                    + "앞뒤 공백 제거와 NFC 정규화 후 대소문자까지 동일하면 409를 반환합니다."
+    )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "회원가입 성공",
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(value = "\"회원가입 성공\""))),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 (비밀번호 불일치, 개인정보 동의 미체크 등)",
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (닉네임 누락 또는 형식 오류, 비밀번호 불일치, 개인정보 미동의 등)",
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(value = """
                                     {"status": 400, "error": "BAD_REQUEST", "message": "비밀번호가 일치하지 않습니다."}

@@ -11,8 +11,10 @@ import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.service.PhotoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -220,7 +222,7 @@ public class PhotoController {
      */
     @Operation(
             summary = "특정 사진 조회",
-            description = "사진ID로 특정 사진을 조회합니다"
+            description = "사진 ID로 사진을 조회합니다. 댓글은 여행 상세 또는 공유 여행 조회 응답에서 확인할 수 있습니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "사진 조회 성공"),
@@ -273,10 +275,35 @@ public class PhotoController {
      */
     @Operation(
             summary = "지도 마커용 사진 조회",
-            description = "위치 정보가 있는 사진들만 조회합니다."
+            description = "로그인한 사용자의 위치 정보가 있는 사진을 조회합니다. 지도에는 thumbnailUrl을 사용하세요. "
+                    + "S 이미지는 가로세로 비율을 유지하며 긴 변이 최대 192px입니다(예: 4000×3000 → 192×144px). "
+                    + "변환이 완료되기 전에는 같은 필드에 원본 URL을 반환합니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "사진 좌표와 지도용 이미지 URL",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            array = @ArraySchema(schema = @Schema(implementation = PhotoDto.class)),
+                            examples = @ExampleObject(value = """
+                                    [
+                                      {
+                                        "photoId": 1,
+                                        "latitude": 33.5145,
+                                        "longitude": 126.5294,
+                                        "thumbnailUrl": "https://storage.example.com/photo1.jpg.map-s.jpg"
+                                      },
+                                      {
+                                        "photoId": 2,
+                                        "latitude": 33.5201,
+                                        "longitude": 126.5333,
+                                        "thumbnailUrl": "https://storage.example.com/photo2.jpg"
+                                      }
+                                    ]
+                                    """)
+                    )
+            ),
             @ApiResponse(
                     responseCode = "401",
                     description = "인증 실패",
@@ -304,10 +331,47 @@ public class PhotoController {
     /**
      * 사진 코멘트 작성
      */
-    @Operation(summary = "사진 댓글 작성",
-            description = "사진 소유자는 content를 보내 작성합니다. 다른 로그인 사용자는 사진이 속한 여행의 shareToken도 보내야 합니다.")
+    @Operation(
+            summary = "사진 댓글 작성",
+            description = "로그인 토큰으로 작성자를 확인합니다. 사진 소유자는 content를 보내고, "
+                    + "다른 사용자는 해당 여행의 shareToken도 함께 보냅니다. "
+                    + "작성자 닉네임은 여행 상세 또는 공유 여행 조회 응답에서 확인할 수 있습니다.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = TravelDto.CommentCreateRequest.class),
+                            examples = {
+                                    @ExampleObject(name = "사진 소유자", value = """
+                                            {
+                                              "content": "사진이 멋져요!"
+                                            }
+                                            """),
+                                    @ExampleObject(name = "공유받은 사용자", value = """
+                                            {
+                                              "content": "사진이 멋져요!",
+                                              "shareToken": "abc-123-def"
+                                            }
+                                            """)
+                            }
+                    )
+            )
+    )
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "코멘트 작성 성공"),
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "댓글 등록 성공. commentId와 cmentId는 같은 댓글 ID입니다.",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "commentId": 1,
+                                      "cmentId": 1,
+                                      "message": "코멘트가 작성되었습니다."
+                                    }
+                                    """)
+                    )
+            ),
             @ApiResponse(
                     responseCode = "400",
                     description = "댓글 내용 누락 또는 공백"

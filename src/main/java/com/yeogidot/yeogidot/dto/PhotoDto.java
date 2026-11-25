@@ -1,5 +1,6 @@
 package com.yeogidot.yeogidot.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,6 +14,11 @@ public class PhotoDto {
     private Long photoId;
     private BigDecimal latitude;
     private BigDecimal longitude;
+    @Schema(
+            description = "지도 마커에 표시할 이미지 URL입니다. S 이미지는 가로세로 비율을 유지하고 긴 변을 최대 192px로 줄입니다. "
+                    + "긴 변이 192px 이하면 확대하지 않습니다. S 이미지가 아직 없으면 원본 이미지 URL을 반환합니다.",
+            example = "https://storage.example.com/photo.jpg.map-s.jpg"
+    )
     private String thumbnailUrl;
 
     // 사진 목록 조회용 상세 DTO

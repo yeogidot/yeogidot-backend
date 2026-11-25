@@ -65,10 +65,9 @@ class AuthNicknameIntegrationTest {
     }
 
     @Test
-    void legacySignupsCanRemainUnsetAndSetNicknameLater() {
-        auth.signup(signup("old1@example.com", null), null);
-        auth.signup(signup("old2@example.com", null), null);
-        User first = users.findByEmail("old1@example.com").orElseThrow();
+    void existingAccountsWithoutNicknameCanSetItLater() {
+        User first = users.saveAndFlush(User.builder().email("old1@example.com").password("encoded").build());
+        users.saveAndFlush(User.builder().email("old2@example.com").password("encoded").build());
         assertThat(first.getNickname()).isNull();
         var profile = auth.changeNickname(first.getId(), "여행자");
         assertThat(profile.nicknameRequired()).isFalse();
@@ -127,7 +126,15 @@ class AuthNicknameIntegrationTest {
     }
 
     @Test
-    void blankNicknameIsRejectedInsteadOfTreatedAsLegacySignup() {
+    void missingNicknameIsRejectedWithoutCreatingAnAccount() {
+        assertThatThrownBy(() -> auth.signup(signup("missing@example.com", null), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("닉네임을 입력해주세요.");
+        assertThat(users.count()).isZero();
+    }
+
+    @Test
+    void blankNicknameIsRejected() {
         assertThatThrownBy(() -> auth.signup(signup("blank@example.com", "  "), null))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(users.count()).isZero();
