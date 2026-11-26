@@ -49,13 +49,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
  * 삭제 기능의 DB 트랜잭션과 R2 파일 삭제 순서를 검증한다.
  *
- * <p>기존 커밋 후 삭제 검증에서 단일 사진 경로만 작업 저장 방식으로 변경했다.
- * 사진 삭제와 작업 저장의 실제 원자성은 PhotoDeletionFailureIntegrationTest에서 검증한다.</p>
+ * <p>단일 사진과 여행 전체 삭제는 작업 저장을 검증한다.
+ * 실제 DB 롤백과 복구는 각 경로의 통합 테스트에서 검증한다.</p>
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -117,7 +118,8 @@ class DeletionR2ConsistencyTest {
                 travelLogRepository,
                 gcsService,
                 geoCodingService,
-                new OwnershipValidator()
+                new OwnershipValidator(),
+                r2DeletionTasks
         );
 
         photoService = new PhotoService(
@@ -166,12 +168,12 @@ class DeletionR2ConsistencyTest {
         travel.addDay(day);
 
         assignedPhoto = photo(PHOTO_ID, day);
+        day.getPhotos().add(assignedPhoto);
         unassignedPhoto = photo(PHOTO_ID, null);
 
         when(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel));
         when(travelDayRepository.findById(DAY_ID)).thenReturn(Optional.of(day));
         when(travelDayRepository.findByTravelId(TRAVEL_ID)).thenReturn(List.of(day));
-        when(photoRepository.findByTravelDayIn(List.of(day))).thenReturn(List.of(assignedPhoto));
         when(photoRepository.findByTravelDay(day)).thenReturn(List.of(assignedPhoto));
         when(photoRepository.findById(PHOTO_ID)).thenReturn(Optional.of(unassignedPhoto));
 
@@ -188,8 +190,11 @@ class DeletionR2ConsistencyTest {
     }
 
     @Test
-    void 여행_전체삭제는_DB_커밋후_R2파일을_삭제한다() throws InterruptedException {
-        assertR2DeletedAfterCommit(() -> travelService.deleteTravel(TRAVEL_ID, owner));
+    void 여행_전체삭제는_원본_URL로_작업을_저장하고_R2를_직접_호출하지_않는다() {
+        executeInTransaction(new RecordingTransactionManager(false),
+                () -> travelService.deleteTravel(TRAVEL_ID, owner));
+        verify(r2DeletionTasks).enqueue(PHOTO_URL);
+        verifyNoInteractions(gcsService);
     }
 
     @Test

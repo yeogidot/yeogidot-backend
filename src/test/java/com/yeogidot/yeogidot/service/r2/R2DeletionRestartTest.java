@@ -16,7 +16,7 @@ class R2DeletionRestartTest {
     @TempDir Path directory;
 
     @ParameterizedTest
-    @ValueSource(strings = {"after-commit", "after-claim", "after-file-delete", "after-failure"})
+    @ValueSource(strings = {"after-commit", "after-claim", "after-file-delete", "after-failure", "after-travel-commit"})
     void 강제종료한_JVM의_삭제작업을_새_JVM에서_복구한다(String scenario) throws Exception {
         runProcess("seed", scenario, 17);
         runProcess("recover", scenario, 0);
