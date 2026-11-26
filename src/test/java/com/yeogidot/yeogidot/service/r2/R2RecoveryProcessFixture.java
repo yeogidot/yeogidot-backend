@@ -4,11 +4,16 @@ import com.yeogidot.yeogidot.service.GcsService;
 import com.yeogidot.yeogidot.service.PhotoService;
 import com.yeogidot.yeogidot.service.R2DeletionTaskService;
 import com.yeogidot.yeogidot.service.R2DeletionWorker;
+import com.yeogidot.yeogidot.service.TravelService;
 import com.yeogidot.yeogidot.entity.Photo;
 import com.yeogidot.yeogidot.entity.R2DeletionTask;
+import com.yeogidot.yeogidot.entity.Travel;
+import com.yeogidot.yeogidot.entity.TravelDay;
 import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.R2DeletionTaskRepository;
+import com.yeogidot.yeogidot.repository.TravelDayRepository;
+import com.yeogidot.yeogidot.repository.TravelRepository;
 import com.yeogidot.yeogidot.repository.UserRepository;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -21,6 +26,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.sql.DataSource;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,6 +40,8 @@ public final class R2RecoveryProcessFixture {
     public static void main(String[] args) throws Exception {
         String action = args[0];
         String scenario = args[1];
+        boolean travelDeletion = scenario.equals("after-travel-commit");
+        boolean afterCommit = scenario.equals("after-commit") || travelDeletion;
         Path directory = Path.of(args[2]).toAbsolutePath().normalize();
         System.setProperty("r2.recovery.fixture.directory", directory.toString());
         Path object = directory.resolve("fake-object.bin");
@@ -64,15 +72,30 @@ public final class R2RecoveryProcessFixture {
                 Photo photo = tx.execute(status -> {
                     User user = context.getBean(UserRepository.class)
                             .save(User.create("restart@example.invalid", "test-password"));
-                    return photos.save(Photo.builder().user(user).filePath(FILE_URL)
-                            .takenAt(LocalDateTime.of(2026, 9, 17, 12, 0)).build());
+                    var photoBuilder = Photo.builder().user(user).filePath(FILE_URL)
+                            .takenAt(LocalDateTime.of(2026, 9, 17, 12, 0));
+                    if (travelDeletion) {
+                        Travel travel = context.getBean(TravelRepository.class)
+                                .save(Travel.builder().user(user).title("Restart test").build());
+                        TravelDay day = context.getBean(TravelDayRepository.class)
+                                .save(TravelDay.builder().travel(travel).dayNumber(1)
+                                        .date(LocalDate.of(2026, 9, 17)).build());
+                        photoBuilder.travelDay(day);
+                    }
+                    return photos.save(photoBuilder.build());
                 });
-                context.getBean(PhotoService.class).deletePhoto(photo.getId(), photo.getUser().getId());
+                if (travelDeletion) {
+                    Long travelId = photo.getTravelDay().getTravel().getId();
+                    context.getBean(TravelService.class).deleteTravel(travelId, photo.getUser());
+                    assertThat(context.getBean(TravelRepository.class).existsById(travelId)).isFalse();
+                } else {
+                    context.getBean(PhotoService.class).deletePhoto(photo.getId(), photo.getUser().getId());
+                }
                 assertThat(photos.count()).isZero();
                 Long id = jobs.findAll().getFirst().getId();
 
                 switch (scenario) {
-                    case "after-commit" -> { }
+                    case "after-commit", "after-travel-commit" -> { }
                     case "after-claim" -> assertThat(tasks.claim(id)).isPresent();
                     case "after-file-delete" -> {
                         assertThat(tasks.claim(id)).isPresent();
@@ -86,7 +109,7 @@ public final class R2RecoveryProcessFixture {
                 }
                 var task = jobs.findById(id).orElseThrow();
                 assertThat(task.getStatus()).isEqualTo(
-                        scenario.equals("after-commit") || scenario.equals("after-failure")
+                        afterCommit || scenario.equals("after-failure")
                                 ? R2DeletionTask.Status.PENDING : R2DeletionTask.Status.PROCESSING);
                 assertThat(Files.exists(object)).isEqualTo(!scenario.equals("after-file-delete"));
                 System.out.printf("BEFORE_RESTART scenario=%s, dbPhoto=0, remainingFile=%d, status=%s%n",
@@ -106,7 +129,7 @@ public final class R2RecoveryProcessFixture {
                 int calls = Integer.parseInt(Files.readString(callsFile));
                 assertThat(calls).isEqualTo(scenario.equals("after-file-delete")
                         || scenario.equals("after-failure") ? 2 : 1);
-                assertThat(task.getAttemptCount()).isEqualTo(scenario.equals("after-commit") ? 1 : 2);
+                assertThat(task.getAttemptCount()).isEqualTo(afterCommit ? 1 : 2);
                 worker.runOnce();
                 assertThat(Integer.parseInt(Files.readString(callsFile))).isEqualTo(calls);
                 System.out.printf("AFTER_RESTART scenario=%s, dbPhoto=0, remainingFile=0, status=COMPLETED, deleteCalls=%d%n",
@@ -118,7 +141,7 @@ public final class R2RecoveryProcessFixture {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @Import(R2DeletionTestConfiguration.class)
+    @Import({R2DeletionTestConfiguration.class, TravelService.class})
     static class Config {
         @Bean DataSource dataSource() {
             Path db = Path.of(System.getProperty("r2.recovery.fixture.directory")).resolve("recovery-db");

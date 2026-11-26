@@ -35,6 +35,7 @@ public class TravelService {
     private final GcsService gcsService;
     private final GeoCodingService geoCodingService;
     private final OwnershipValidator ownershipValidator;
+    private final R2DeletionTaskService r2DeletionTasks;
 
     @Value("${app.frontend.base-url}")
     private String frontendBaseUrl;
@@ -255,19 +256,15 @@ public class TravelService {
         // 권한 검증
         ownershipValidator.validateTravelOwner(travel, user.getId(), "삭제 권한이 없습니다.");
 
-        // DB 삭제 후에도 사용할 수 있도록 R2 URL만 미리 보관한다.
-        // N+1 개선: findByTravelDay() N번 → findByTravelDayIn() 1번으로 변경
-        List<TravelDay> travelDays = travelDayRepository.findByTravelId(travelId);
-        List<Photo> photos = photoRepository.findByTravelDayIn(travelDays);
-        List<String> fileUrlsToDelete = photos.stream()
-                .flatMap(photo -> photo.storageFileUrls().stream())
-                .toList();
+        // 일차별 사진을 미리 로드해 연쇄 삭제와 같은 컬렉션에서 작업을 저장한다.
+        travelRepository.findDaysWithPhotos(travelId);
+        travel.getTravelDays().stream()
+                .flatMap(day -> day.getPhotos().stream())
+                .map(Photo::getFilePath)
+                .forEach(r2DeletionTasks::enqueue);
 
-        // DB는 Cascade로 자동 삭제 (Travel -> TravelDay -> Photo, TravelLog, Cment 모두 자동)
+        // 여행과 사진 삭제, R2 작업 저장은 함께 커밋된다.
         travelRepository.delete(travel);
-
-        // DB 커밋에 성공한 경우에만 외부 저장소 파일을 삭제한다.
-        deleteR2FilesAfterCommit(fileUrlsToDelete);
         log.info("✅ 여행 삭제 DB 작업 완료 - Travel ID: {}", travelId);
     }
 

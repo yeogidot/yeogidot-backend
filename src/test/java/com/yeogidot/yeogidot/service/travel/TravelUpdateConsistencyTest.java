@@ -2,6 +2,7 @@ package com.yeogidot.yeogidot.service.travel;
 
 import com.yeogidot.yeogidot.service.GcsService;
 import com.yeogidot.yeogidot.service.GeoCodingService;
+import com.yeogidot.yeogidot.service.R2DeletionTaskService;
 import com.yeogidot.yeogidot.service.TravelService;
 import com.yeogidot.yeogidot.dto.TravelUpdateRequest;
 import com.yeogidot.yeogidot.entity.Photo;
@@ -41,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -89,7 +91,8 @@ class TravelUpdateConsistencyTest {
                 travelLogRepository,
                 gcsService,
                 geoCodingService,
-                new OwnershipValidator()
+                new OwnershipValidator(),
+                mock(R2DeletionTaskService.class)
         );
 
         owner = User.builder()

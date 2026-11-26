@@ -167,7 +167,8 @@ class UploadTimingIntegrationTest {
     @Test void 여행_생성_서비스와_트랜잭션_완료를_구분한다() {
         var travels = mock(TravelRepository.class);
         var travelService = new TravelService(travels, mock(UserRepository.class), photos,
-                mock(TravelDayRepository.class), mock(TravelLogRepository.class), storage, geo, new OwnershipValidator());
+                mock(TravelDayRepository.class), mock(TravelLogRepository.class), storage, geo,
+                new OwnershipValidator(), mock(R2DeletionTaskService.class));
         var photo = Photo.builder().id(1L).user(user).takenAt(LocalDateTime.of(2026, 10, 17, 10, 0)).build();
         when(photos.findAllById(any())).thenReturn(List.of(photo));
         when(travels.save(any(Travel.class))).thenAnswer(call -> call.getArgument(0));
