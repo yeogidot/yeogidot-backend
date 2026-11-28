@@ -50,7 +50,7 @@ class UploadTimingIntegrationTest {
         ReflectionTestUtils.setField(storage, "bucketName", "test-only");
         ReflectionTestUtils.setField(storage, "publicUrl", "https://example.invalid");
         service = new PhotoService(photos, mock(CommentRepository.class), storage, geo,
-                new ObjectMapper(), mock(TravelDayRepository.class), new OwnershipValidator(), mock(R2DeletionTaskService.class));
+                new ObjectMapper(), mock(TravelDayRepository.class), new OwnershipValidator(), mock(R2DeletionTaskService.class), mock(UserRepository.class));
         when(s3.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenReturn(PutObjectResponse.builder().build());
         when(photos.save(any(Photo.class))).thenAnswer(call -> {
             jdbc.update("insert into saved_photo default values");

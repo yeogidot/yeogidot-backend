@@ -202,7 +202,7 @@ public class AuthService {
      */
     @Transactional
     public void deleteAccount(Long userId, DeleteAccountRequest request, String token) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findForTravelMutation(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
