@@ -74,6 +74,7 @@ public class TravelService {
     // === 여행 생성 ===
     @Transactional
     public Long createTravel(TravelDto.CreateRequest request, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         UploadTiming.watchTransaction(System.nanoTime());
         try (var timing = UploadTiming.start("travel_create_service")) {
             Long id = doCreateTravel(request, user);
@@ -250,6 +251,7 @@ public class TravelService {
     // === 여행 삭제 ===
     @Transactional
     public void deleteTravel(Long travelId, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         Travel travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 여행입니다."));
 
@@ -287,6 +289,7 @@ public class TravelService {
     // === 여행 일차 삭제 ===
     @Transactional
     public void deleteTravelDay(Long dayId, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         TravelDay day = travelDayRepository.findById(dayId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 일차입니다."));
 
@@ -303,10 +306,10 @@ public class TravelService {
         int deletedDayNumber = day.getDayNumber();
         Long travelId = travel.getId();
 
-        // DB 삭제 후에도 사용할 수 있도록 R2 URL만 미리 보관한다.
-        List<String> fileUrlsToDelete = photos.stream()
-                .flatMap(photo -> photo.storageFileUrls().stream())
-                .toList();
+        // 사진별 삭제 작업을 같은 트랜잭션에 기록한다. 작업자가 원본과 썸네일을 삭제한다.
+        photos.stream()
+                .map(Photo::getFilePath)
+                .forEach(r2DeletionTasks::enqueue);
 
         // 사진 먼저 DB에서 삭제 (Cascade 충돌 방지)
         photoRepository.deleteAll(photos);
@@ -333,14 +336,12 @@ public class TravelService {
 
         // 일차 삭제 후 여행의 startDate/endDate 갱신
         updateTravelDates(travel);
-
-        // 모든 DB 작업이 커밋된 경우에만 외부 저장소 파일을 삭제한다.
-        deleteR2FilesAfterCommit(fileUrlsToDelete);
     }
 
     // === 여행 일차 수동 추가  ===
     @Transactional
     public Long addTravelDay(Long travelId, TravelDto.AddDayRequest request, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         // 여행 조회 및 권한 확인
         Travel travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 여행입니다."));
@@ -406,6 +407,7 @@ public class TravelService {
     // === 여행 일차에 사진 추가 ===
     @Transactional
     public int addPhotosToDay(Long dayId, List<Long> photoIds, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         // TravelDay 조회
         TravelDay day = travelDayRepository.findById(dayId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 일차입니다."));
@@ -487,6 +489,7 @@ public class TravelService {
     // === 여행 공유 URL 조회 및 생성 (수정: String 반환) ===
     @Transactional
     public String getOrCreateShareUrl(Long travelId, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         // 여행지 존재 여부 확인
         Travel travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 여행 기록입니다."));
@@ -676,6 +679,7 @@ public class TravelService {
     // === 여행 정보 통합 수정 (PATCH) ===
     @Transactional
     public void updateTravel(Long travelId, com.yeogidot.yeogidot.dto.TravelUpdateRequest request, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         Travel travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new IllegalArgumentException("여행이 존재하지 않습니다."));
 

@@ -10,6 +10,7 @@ import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.repository.CommentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
+import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.security.OwnershipValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,7 @@ class PhotoUploadValidationTest {
 
     @BeforeEach void setup() {
         service = new PhotoService(photos, mock(CommentRepository.class), storage, mock(GeoCodingService.class),
-                new ObjectMapper(), mock(TravelDayRepository.class), new OwnershipValidator(), mock(R2DeletionTaskService.class));
+                new ObjectMapper(), mock(TravelDayRepository.class), new OwnershipValidator(), mock(R2DeletionTaskService.class), mock(UserRepository.class));
     }
 
     @Test void 허용하지_않은_확장자는_업로드하지_않는다() {

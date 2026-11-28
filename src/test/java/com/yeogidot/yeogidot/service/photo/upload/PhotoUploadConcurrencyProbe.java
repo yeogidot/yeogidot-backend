@@ -10,6 +10,7 @@ import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.repository.CommentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
+import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.security.OwnershipValidator;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
@@ -53,7 +54,7 @@ final class PhotoUploadConcurrencyProbe {
     private final GcsService storage = mock(GcsService.class);
     private final GeoCodingService geocoding = mock(GeoCodingService.class);
     private final PhotoService service = new PhotoService(photos, mock(CommentRepository.class), storage, geocoding,
-            new ObjectMapper(), mock(TravelDayRepository.class), new OwnershipValidator(), mock(R2DeletionTaskService.class));
+            new ObjectMapper(), mock(TravelDayRepository.class), new OwnershipValidator(), mock(R2DeletionTaskService.class), mock(UserRepository.class));
     private final User owner = User.builder().id(1L).email("upload-test@example.invalid").password("unused").build();
     private final byte[] png;
 

@@ -10,6 +10,7 @@ import com.yeogidot.yeogidot.entity.User;
 import com.yeogidot.yeogidot.repository.CommentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
+import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.security.OwnershipValidator;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -112,7 +113,7 @@ final class PhotoUploadResourceProcess {
         ReflectionTestUtils.setField(storage, "bucketName", "local-benchmark-not-a-real-bucket");
         ReflectionTestUtils.setField(storage, "publicUrl", "https://storage.example.invalid");
         service = new PhotoService(repository, mock(CommentRepository.class), storage, mock(GeoCodingService.class),
-                JSON, mock(TravelDayRepository.class), new OwnershipValidator(), mock(R2DeletionTaskService.class));
+                JSON, mock(TravelDayRepository.class), new OwnershipValidator(), mock(R2DeletionTaskService.class), mock(UserRepository.class));
     }
 
     public static void main(String[] args) throws Exception {

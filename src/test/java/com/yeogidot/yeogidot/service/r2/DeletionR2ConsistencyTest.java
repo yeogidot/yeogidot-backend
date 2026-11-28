@@ -55,7 +55,7 @@ import static org.mockito.Mockito.when;
 /**
  * 삭제 기능의 DB 트랜잭션과 R2 파일 삭제 순서를 검증한다.
  *
- * <p>단일 사진과 여행 전체 삭제는 작업 저장을 검증한다.
+ * <p>단일 사진, 여행 전체, 여행 일차 삭제에서 작업 저장을 검증한다.
  * 실제 DB 롤백과 복구는 각 경로의 통합 테스트에서 검증한다.</p>
  */
 @ExtendWith(MockitoExtension.class)
@@ -130,7 +130,8 @@ class DeletionR2ConsistencyTest {
                 objectMapper,
                 travelDayRepository,
                 new OwnershipValidator(),
-                r2DeletionTasks
+                r2DeletionTasks,
+                userRepository
         );
 
         authService = new AuthService(
@@ -177,7 +178,7 @@ class DeletionR2ConsistencyTest {
         when(photoRepository.findByTravelDay(day)).thenReturn(List.of(assignedPhoto));
         when(photoRepository.findById(PHOTO_ID)).thenReturn(Optional.of(unassignedPhoto));
 
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(owner));
+        when(userRepository.findForTravelMutation(USER_ID)).thenReturn(Optional.of(owner));
         when(passwordEncoder.matches(RAW_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
         when(photoRepository.findByUserId(USER_ID)).thenReturn(List.of(assignedPhoto));
         when(travelRepository.findAllByUserOrderByIdDesc(owner)).thenReturn(List.of(travel));
@@ -203,8 +204,11 @@ class DeletionR2ConsistencyTest {
     }
 
     @Test
-    void 여행_일차삭제는_DB_커밋후_R2파일을_삭제한다() throws InterruptedException {
-        assertR2DeletedAfterCommit(() -> travelService.deleteTravelDay(DAY_ID, owner));
+    void 여행_일차삭제는_원본_URL로_작업을_저장하고_R2를_직접_호출하지_않는다() {
+        executeInTransaction(new RecordingTransactionManager(false),
+                () -> travelService.deleteTravelDay(DAY_ID, owner));
+        verify(r2DeletionTasks).enqueue(PHOTO_URL);
+        verifyNoInteractions(gcsService);
     }
 
     @Test

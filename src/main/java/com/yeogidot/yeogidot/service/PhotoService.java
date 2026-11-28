@@ -12,6 +12,7 @@ import com.yeogidot.yeogidot.exception.ResourceNotFoundException;
 import com.yeogidot.yeogidot.repository.CommentRepository;
 import com.yeogidot.yeogidot.repository.PhotoRepository;
 import com.yeogidot.yeogidot.repository.TravelDayRepository;
+import com.yeogidot.yeogidot.repository.UserRepository;
 import com.yeogidot.yeogidot.security.OwnershipValidator;
 import com.yeogidot.yeogidot.observability.UploadTiming;
 import lombok.Data;
@@ -58,6 +59,7 @@ public class PhotoService {
     private final TravelDayRepository travelDayRepository;
     private final OwnershipValidator ownershipValidator;
     private final R2DeletionTaskService r2DeletionTasks;
+    private final UserRepository userRepository;
 
     @Value("${app.frontend.base-url}")
     private String frontendBaseUrl;
@@ -416,6 +418,8 @@ public class PhotoService {
     @Transactional
     public Long createComment(Long photoId, TravelDto.CommentCreateRequest request, User user) {
         validateCommentContent(request);
+        // 댓글 저장도 작성자 FK를 사용하므로 사진 행보다 작성자 행을 먼저 잠근다.
+        userRepository.lockForTravelMutation(user.getId());
         Photo photo = photoRepository.findByIdForCommentMutation(photoId)
                 .filter(candidate -> canCreateComment(candidate, user, request.getShareToken()))
                 .orElseThrow(() -> new ResourceNotFoundException("댓글을 작성할 수 있는 사진", photoId));
@@ -562,6 +566,7 @@ public class PhotoService {
     /// 사진 삭제 기능
     @Transactional
     public Long deletePhoto(Long photoId, Long currentUserId) {
+        userRepository.lockForTravelMutation(currentUserId);
 
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사진입니다."));
@@ -612,6 +617,7 @@ public class PhotoService {
      */
     @Transactional
     public void updateTakenAt(Long photoId, LocalDateTime newTakenAt, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
 
@@ -630,6 +636,7 @@ public class PhotoService {
      */
     @Transactional
     public void movePhotoToDay(Long photoId, Long dayId, Long currentUserId) {
+        userRepository.lockForTravelMutation(currentUserId);
         // 사진 조회
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
@@ -661,6 +668,7 @@ public class PhotoService {
      */
     @Transactional
     public void updatePhoto(Long photoId, com.yeogidot.yeogidot.dto.PhotoUpdateRequest request, User user) {
+        userRepository.lockForTravelMutation(user.getId());
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("사진이 존재하지 않습니다."));
 
